@@ -19,30 +19,34 @@ import { StreamingAvatarProvider, StreamingAvatarSessionState } from "./logic";
 import { LoadingIcon } from "./Icons";
 import { MessageHistory } from "./AvatarSession/MessageHistory";
 
-// ✅ CONFIGURATION PRÉ-REMPLIE
+// ✅ CONFIGURATION avec FOND NOIR
 const DEFAULT_CONFIG: StartAvatarRequest = {
-  quality: AvatarQuality.High, // ✅ Qualité haute
-  avatarName: "Katya_Pink_Suit_public", // ✅ Votre avatar Katya
-  knowledgeId: "ff7e415d125e41a3bfbf0665877705d4", // ✅ Votre knowledge base
+  quality: AvatarQuality.High,
+  avatarName: "Katya_Pink_Suit_public",
+  knowledgeId: "ff7e415d125e41a3bfbf0665877705d4",
   voice: {
     rate: 1.5,
     emotion: VoiceEmotion.FRIENDLY,
     model: ElevenLabsModel.eleven_multilingual_v2,
   },
-  language: "fr", // ✅ Français par défaut
+  language: "fr",
   voiceChatTransport: VoiceChatTransport.WEBSOCKET,
   sttSettings: {
     provider: STTProvider.DEEPGRAM,
+  },
+  background: {
+    type: "color",
+    value: "#000000"
   },
 };
 
 function InteractiveAvatar() {
   const { initAvatar, startAvatar, stopAvatar, sessionState, stream } =
     useStreamingAvatarSession();
-  const { startVoiceChat } = useVoiceChat();
+  const { startVoiceChat, stopVoiceChat, isVoiceChatting } = useVoiceChat();
 
   const [config, setConfig] = useState<StartAvatarRequest>(DEFAULT_CONFIG);
-  const [selectedLanguage, setSelectedLanguage] = useState("fr"); // Français par défaut
+  const [selectedLanguage, setSelectedLanguage] = useState("fr");
 
   const mediaStream = useRef<HTMLVideoElement>(null);
 
@@ -77,8 +81,11 @@ function InteractiveAvatar() {
         console.log(">>>>> Stream ready:", event.detail);
       });
 
-      // Mettre à jour la langue avant de démarrer
-      const updatedConfig = { ...config, language: selectedLanguage };
+      const updatedConfig = { 
+        ...config, 
+        language: selectedLanguage,
+        background: { type: "color", value: "#000000" }
+      };
       await startAvatar(updatedConfig);
 
       if (isVoiceChat) {
@@ -103,36 +110,40 @@ function InteractiveAvatar() {
   }, [mediaStream, stream]);
 
   return (
-    <div className="w-full flex flex-col gap-4">
-      {/* ✅ CONTENEUR - Format réduit en largeur, fond noir conservé */}
+    // ✅ Container responsive - s'adapte à l'iframe
+    <div className="w-full min-h-screen flex items-center justify-center p-4" style={{ background: '#000' }}>
       <div 
-        className="flex flex-col rounded-xl bg-zinc-900 overflow-hidden"
-        style={{ maxWidth: '700px', margin: '0 auto', width: '100%' }}
+        className="flex flex-col rounded-xl overflow-hidden shadow-2xl"
+        style={{ 
+          width: '100%',
+          maxWidth: '600px', // ✅ Taille réduite et adaptable
+          background: '#18181b'
+        }}
       >
-        {/* ✅ ZONE AVATAR - Ratio 16:9 pour qualité optimale */}
-        <div className="relative w-full aspect-video overflow-hidden flex flex-col items-center justify-center">
+        {/* ✅ ZONE AVATAR - Format compact */}
+        <div 
+          className="relative w-full bg-black overflow-hidden flex flex-col items-center justify-center"
+          style={{ height: '400px' }} // ✅ Hauteur fixe réduite
+        >
           {sessionState !== StreamingAvatarSessionState.INACTIVE ? (
             <AvatarVideo ref={mediaStream} />
           ) : (
-            // ✅ INTERFACE SIMPLIFIÉE - Fond noir conservé
-            <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-              {/* ✅ PETIT CADRE TRANSPARENT À 80% */}
+            <div className="w-full h-full flex items-center justify-center bg-black">
               <div 
                 className="rounded-2xl p-6 flex flex-col items-center gap-4"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.2)', // ✅ Transparent 80%
+                  background: 'rgba(255, 255, 255, 0.2)',
                   backdropFilter: 'blur(10px)',
-                  maxWidth: '350px',
+                  maxWidth: '320px',
                   width: '90%'
                 }}
               >
-                {/* ✅ SÉLECTEUR DE LANGUE - Français en premier */}
+                {/* SÉLECTEUR DE LANGUE */}
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg text-white border-0 outline-none"
+                  className="w-full px-4 py-2 rounded-lg text-white border-0 outline-none text-sm"
                   style={{ 
-                    fontSize: '16px',
                     background: 'rgba(0, 0, 0, 0.3)',
                   }}
                 >
@@ -144,12 +155,13 @@ function InteractiveAvatar() {
                   <option value="pt">🇵🇹 Português</option>
                 </select>
 
-                {/* ✅ BOUTON "CHAT NOW" - Couleur violette #480559 */}
+                {/* BOUTON CHAT NOW */}
                 <button
                   onClick={() => startSessionV2(true)}
-                  className="w-full px-8 py-3 rounded-full text-white font-semibold text-lg transition-all hover:scale-105 hover:shadow-xl"
+                  className="w-full px-6 py-2 rounded-full text-white font-semibold transition-all hover:scale-105"
                   style={{
-                    background: '#480559', // ✅ Couleur de votre site
+                    background: '#480559',
+                    fontSize: '16px',
                     boxShadow: '0 4px 15px rgba(72, 5, 89, 0.4)'
                   }}
                 >
@@ -160,25 +172,30 @@ function InteractiveAvatar() {
           )}
         </div>
 
-        {/* ✅ CONTRÔLES (quand l'avatar est connecté) */}
-        {sessionState === StreamingAvatarSessionState.CONNECTED && (
-          <div className="flex flex-col gap-3 items-center justify-center p-4 border-t border-zinc-700 w-full">
-            <AvatarControls />
-          </div>
-        )}
-        
-        {/* ✅ LOADING */}
-        {sessionState === StreamingAvatarSessionState.CONNECTING && (
-          <div className="flex items-center justify-center p-8">
+        {/* ✅ CONTRÔLES EN BAS - Compacts */}
+        <div className="flex flex-col gap-2 items-center justify-center p-3" style={{ background: '#27272a' }}>
+          {sessionState === StreamingAvatarSessionState.CONNECTED ? (
+            <div className="w-full flex flex-col items-center gap-2">
+              <AvatarControls />
+              
+              {isVoiceChatting && (
+                <button
+                  onClick={stopVoiceChat}
+                  className="px-4 py-2 rounded-lg text-white text-sm font-medium transition-all hover:scale-105"
+                  style={{
+                    background: '#dc2626',
+                    boxShadow: '0 2px 10px rgba(220, 38, 38, 0.3)'
+                  }}
+                >
+                  Interrompre
+                </button>
+              )}
+            </div>
+          ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
             <LoadingIcon />
-          </div>
-        )}
+          ) : null}
+        </div>
       </div>
-
-      {/* ✅ HISTORIQUE DES MESSAGES */}
-      {sessionState === StreamingAvatarSessionState.CONNECTED && (
-        <MessageHistory />
-      )}
     </div>
   );
 }
