@@ -10,7 +10,6 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useMemoizedFn, useUnmount } from "ahooks";
 
-import { Button } from "./Button";
 import { AvatarVideo } from "./AvatarSession/AvatarVideo";
 import { useStreamingAvatarSession } from "./logic/useStreamingAvatarSession";
 import { AvatarControls } from "./AvatarSession/AvatarControls";
@@ -37,7 +36,7 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
 function InteractiveAvatar() {
   const { initAvatar, startAvatar, stopAvatar, sessionState, stream } =
     useStreamingAvatarSession();
-  const { startVoiceChat, stopVoiceChat, isVoiceChatting } = useVoiceChat();
+  const { startVoiceChat, stopVoiceChat, isVoiceChatActive } = useVoiceChat();
 
   const [config] = useState<StartAvatarRequest>(DEFAULT_CONFIG);
   const [selectedLanguage, setSelectedLanguage] = useState("fr");
@@ -66,9 +65,9 @@ function InteractiveAvatar() {
         console.log("Stream ready:", event.detail);
       });
 
-      const updatedConfig = { 
-        ...config, 
-        language: selectedLanguage
+      const updatedConfig = {
+        ...config,
+        language: selectedLanguage,
       };
       await startAvatar(updatedConfig);
       await startVoiceChat();
@@ -92,17 +91,17 @@ function InteractiveAvatar() {
 
   return (
     <div className="w-full h-screen flex items-center justify-center bg-black">
-      <div 
+      <div
         className="flex flex-col rounded-xl overflow-hidden shadow-2xl"
-        style={{ 
-          width: '100%',
-          maxWidth: '600px',
-          background: '#18181b'
+        style={{
+          width: "100%",
+          maxWidth: "600px",
+          background: "#18181b",
         }}
       >
-        <div 
+        <div
           className="relative w-full bg-black overflow-hidden flex items-center justify-center"
-          style={{ height: '450px' }}
+          style={{ height: "450px" }}
         >
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
             <AvatarVideo ref={mediaStream} />
@@ -112,20 +111,20 @@ function InteractiveAvatar() {
             </div>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <div 
+              <div
                 className="rounded-2xl p-6 flex flex-col items-center gap-4"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  backdropFilter: 'blur(10px)',
-                  maxWidth: '320px',
-                  width: '90%'
+                  background: "rgba(255, 255, 255, 0.2)",
+                  backdropFilter: "blur(10px)",
+                  maxWidth: "320px",
+                  width: "90%",
                 }}
               >
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
                   className="w-full px-4 py-2 rounded-lg text-white border-0 outline-none text-sm"
-                  style={{ background: 'rgba(0, 0, 0, 0.3)' }}
+                  style={{ background: "rgba(0, 0, 0, 0.3)" }}
                 >
                   <option value="fr">🇫🇷 Français</option>
                   <option value="en">🇬🇧 English</option>
@@ -138,9 +137,9 @@ function InteractiveAvatar() {
                   onClick={startSessionV2}
                   className="w-full px-6 py-2 rounded-full text-white font-semibold transition-all hover:scale-105"
                   style={{
-                    background: '#480559',
-                    fontSize: '16px',
-                    boxShadow: '0 4px 15px rgba(72, 5, 89, 0.4)'
+                    background: "#480559",
+                    fontSize: "16px",
+                    boxShadow: "0 4px 15px rgba(72, 5, 89, 0.4)",
                   }}
                 >
                   Chat now
@@ -151,13 +150,16 @@ function InteractiveAvatar() {
         </div>
 
         {sessionState === StreamingAvatarSessionState.CONNECTED && (
-          <div className="flex flex-col gap-2 items-center p-3" style={{ background: '#27272a' }}>
+          <div
+            className="flex flex-col gap-2 items-center p-3"
+            style={{ background: "#27272a" }}
+          >
             <AvatarControls />
-            {isVoiceChatting && (
+            {isVoiceChatActive && (
               <button
                 onClick={stopVoiceChat}
                 className="px-4 py-2 rounded-lg text-white text-sm font-medium"
-                style={{ background: '#dc2626' }}
+                style={{ background: "#dc2626" }}
               >
                 Interrompre
               </button>
