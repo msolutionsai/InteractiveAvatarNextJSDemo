@@ -1,3 +1,4 @@
+"use client";
 import {
   AvatarQuality,
   StreamingEvents,
@@ -12,7 +13,6 @@ import { useMemoizedFn, useUnmount } from "ahooks";
 
 import { AvatarVideo } from "./AvatarSession/AvatarVideo";
 import { useStreamingAvatarSession } from "./logic/useStreamingAvatarSession";
-import { AvatarControls } from "./AvatarSession/AvatarControls";
 import { useVoiceChat } from "./logic/useVoiceChat";
 import { StreamingAvatarProvider, StreamingAvatarSessionState } from "./logic";
 import { LoadingIcon } from "./Icons";
@@ -28,9 +28,9 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
   },
   language: "fr",
   voiceChatTransport: VoiceChatTransport.WEBSOCKET,
-  sttSettings: {
-    provider: STTProvider.DEEPGRAM,
-  },
+  sttSettings: { provider: STTProvider.DEEPGRAM },
+  // Fond côté moteur (évite l'écran vert)
+  background: { color: "#0e0c1d" },
 };
 
 function InteractiveAvatar() {
@@ -40,39 +40,24 @@ function InteractiveAvatar() {
 
   const [config] = useState<StartAvatarRequest>(DEFAULT_CONFIG);
   const [selectedLanguage, setSelectedLanguage] = useState("fr");
-
-  const mediaStream = useRef<HTMLVideoElement>(null);
+  const mediaRef = useRef<HTMLVideoElement>(null);
 
   async function fetchAccessToken() {
-    try {
-      const response = await fetch("/api/get-access-token", {
-        method: "POST",
-      });
-      const token = await response.text();
-      return token;
-    } catch (error) {
-      console.error("Error fetching access token:", error);
-      throw error;
-    }
+    const response = await fetch("/api/get-access-token", { method: "POST" });
+    const token = await response.text();
+    return token;
   }
 
-  const startSessionV2 = useMemoizedFn(async () => {
+  const startSession = useMemoizedFn(async () => {
     try {
-      const newToken = await fetchAccessToken();
-      const avatar = initAvatar(newToken);
-
-      avatar.on(StreamingEvents.STREAM_READY, (event) => {
-        console.log("Stream ready:", event.detail);
-      });
-
-      const updatedConfig = {
-        ...config,
-        language: selectedLanguage,
-      };
-      await startAvatar(updatedConfig);
+      const token = await fetchAccessToken();
+      const avatar = initAvatar(token);
+      // optionnel: hook de debug quand le flux est prêt
+      avatar.on(StreamingEvents.STREAM_READY, () => {});
+      await startAvatar({ ...config, language: selectedLanguage });
       await startVoiceChat();
-    } catch (error) {
-      console.error("Error starting avatar session:", error);
+    } catch (err) {
+      console.error("Error starting avatar session:", err);
     }
   });
 
@@ -81,85 +66,83 @@ function InteractiveAvatar() {
   });
 
   useEffect(() => {
-    if (stream && mediaStream.current) {
-      mediaStream.current.srcObject = stream;
-      mediaStream.current.onloadedmetadata = () => {
-        mediaStream.current!.play();
+    if (stream && mediaRef.current) {
+      mediaRef.current.srcObject = stream;
+      mediaRef.current.onloadedmetadata = () => {
+        mediaRef.current!.play();
       };
     }
-  }, [mediaStream, stream]);
+  }, [stream]);
 
   return (
-    <div className="w-full h-screen flex items-center justify-center bg-black">
+    <div className="flex items-center justify-center w-full h-screen bg-black overflow-hidden">
       <div
-        className="flex flex-col rounded-xl overflow-hidden shadow-2xl"
+        className="flex flex-col items-center justify-center rounded-xl overflow-hidden shadow-2xl"
         style={{
           width: "100%",
-          maxWidth: "600px",
-          background: "#18181b",
+          maxWidth: "480px",
+          background:
+            "radial-gradient(ellipse at center, #0e0c1d 0%, #1b0033 100%)",
         }}
       >
+        {/* Cadre vidéo / aperçu */}
         <div
-          className="relative w-full bg-black overflow-hidden flex items-center justify-center"
-          style={{ height: "450px" }}
+          className="relative flex items-center justify-center"
+          style={{ width: "100%", height: "420px" }}
         >
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
-            <AvatarVideo ref={mediaStream} />
+            <AvatarVideo ref={mediaRef} />
           ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
             <div className="flex items-center justify-center">
               <LoadingIcon />
             </div>
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <div
-                className="rounded-2xl p-6 flex flex-col items-center gap-4"
+            // Écran d’accueil (aperçu + boutons sur UNE seule ligne)
+            <div className="flex flex-col w-full h-full items-center justify-end p-4">
+              <img
+                src="/avatar-preview.png"
+                alt="Aperçu avatar"
                 style={{
-                  background: "rgba(255, 255, 255, 0.2)",
-                  backdropFilter: "blur(10px)",
-                  maxWidth: "320px",
-                  width: "90%",
+                  borderRadius: "10px",
+                  width: "100%",
+                  height: "auto",
+                  objectFit: "cover",
+                  background:
+                    "radial-gradient(ellipse at center, #0e0c1d 0%, #1b0033 100%)",
                 }}
-              >
+              />
+
+              <div className="mt-4 w-full flex items-center justify-center gap-2">
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg text-white border-0 outline-none text-sm"
-                  style={{ background: "rgba(0, 0, 0, 0.3)" }}
+                  className="flex-1 px-3 py-2 text-sm text-white rounded-full bg-neutral-800 border border-neutral-700"
                 >
                   <option value="fr">🇫🇷 Français</option>
-                  <option value="en">🇬🇧 English</option>
-                  <option value="es">🇪🇸 Español</option>
-                  <option value="de">🇩🇪 Deutsch</option>
-                  <option value="it">🇮🇹 Italiano</option>
+                  <option value="en">🇬🇧 Anglais</option>
+                  <option value="es">🇪🇸 Espagnol</option>
+                  <option value="de">🇩🇪 Allemand</option>
+                  <option value="it">🇮🇹 Italien</option>
                 </select>
 
                 <button
-                  onClick={startSessionV2}
-                  className="w-full px-6 py-2 rounded-full text-white font-semibold transition-all hover:scale-105"
-                  style={{
-                    background: "#480559",
-                    fontSize: "16px",
-                    boxShadow: "0 4px 15px rgba(72, 5, 89, 0.4)",
-                  }}
+                  onClick={startSession}
+                  className="px-4 py-2 text-sm font-semibold text-white rounded-full bg-purple-700 hover:bg-purple-800"
                 >
-                  Chat now
+                  Lancer le chat
                 </button>
               </div>
             </div>
           )}
         </div>
 
+        {/* Barre de contrôle (uniquement quand la session est active) */}
         {sessionState === StreamingAvatarSessionState.CONNECTED && (
-          <div
-            className="flex flex-col gap-2 items-center p-3"
-            style={{ background: "#27272a" }}
-          >
-            <AvatarControls />
+          <div className="flex w-full items-center justify-center gap-3 p-3 bg-neutral-900">
             {isVoiceChatActive && (
               <button
                 onClick={stopVoiceChat}
-                className="px-4 py-2 rounded-lg text-white text-sm font-medium"
-                style={{ background: "#dc2626" }}
+                className="px-4 py-2 text-sm font-semibold text-white rounded-full bg-red-600 hover:bg-red-700"
               >
                 Interrompre
               </button>
