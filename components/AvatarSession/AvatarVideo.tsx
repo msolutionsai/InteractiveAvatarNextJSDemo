@@ -7,45 +7,57 @@ import { StreamingAvatarSessionState } from "../logic";
 import { CloseIcon } from "../Icons";
 import { Button } from "../Button";
 
-export const AvatarVideo = forwardRef<HTMLVideoElement>(({}, ref) => {
+export const AvatarVideo = forwardRef<HTMLVideoElement>((_, ref) => {
   const { sessionState, stopAvatar } = useStreamingAvatarSession();
   const { connectionQuality } = useConnectionQuality();
 
   const isLoaded = sessionState === StreamingAvatarSessionState.CONNECTED;
 
   return (
-    <>
+    <div className="relative w-full h-full overflow-hidden rounded-lg">
+      {/* Qualité de connexion (discrète en haut à gauche) */}
       {connectionQuality !== ConnectionQuality.UNKNOWN && (
-        <div className="absolute top-3 left-3 bg-black text-white rounded-lg px-3 py-2">
-          Connection Quality: {connectionQuality}
+        <div className="absolute top-3 left-3 bg-black/70 text-white text-xs rounded-md px-2 py-1 z-20">
+          Qualité : {connectionQuality}
         </div>
       )}
+
+      {/* Bouton de fermeture visible uniquement une fois connecté */}
       {isLoaded && (
         <Button
-          className="absolute top-3 right-3 !p-2 bg-zinc-700 bg-opacity-50 z-10"
+          className="absolute top-3 right-3 !p-2 bg-zinc-700/60 hover:bg-zinc-700 z-20 rounded-full"
           onClick={stopAvatar}
+          aria-label="Fermer"
         >
           <CloseIcon />
         </Button>
       )}
+
+      {/* Vidéo de l’avatar */}
       <video
         ref={ref}
         autoPlay
         playsInline
+        muted
         style={{
           width: "100%",
           height: "100%",
-          objectFit: "contain",
+          objectFit: "cover",
+          background:
+            "radial-gradient(ellipse at center, #0e0c1d 0%, #1b0033 100%)",
         }}
       >
         <track kind="captions" />
       </video>
+
+      {/* État de chargement avant la connexion */}
       {!isLoaded && (
-        <div className="w-full h-full flex items-center justify-center absolute top-0 left-0">
-          Loading...
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white text-sm z-10">
+          Chargement de l’avatar...
         </div>
       )}
-    </>
+    </div>
   );
 });
+
 AvatarVideo.displayName = "AvatarVideo";
