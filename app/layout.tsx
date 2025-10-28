@@ -36,7 +36,6 @@ export default function RootLayout({
       <head />
       <body className="min-h-screen bg-black text-white">
         <main className="relative flex flex-col h-screen w-screen">
-          {/* ✅ NAVBAR SUPPRIMÉE */}
           {children}
         </main>
       </body>
