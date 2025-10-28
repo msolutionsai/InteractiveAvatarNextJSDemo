@@ -17,9 +17,7 @@ import { AvatarControls } from "./AvatarSession/AvatarControls";
 import { useVoiceChat } from "./logic/useVoiceChat";
 import { StreamingAvatarProvider, StreamingAvatarSessionState } from "./logic";
 import { LoadingIcon } from "./Icons";
-import { MessageHistory } from "./AvatarSession/MessageHistory";
 
-// ✅ CONFIGURATION avec FOND NOIR
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
@@ -34,10 +32,6 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
   sttSettings: {
     provider: STTProvider.DEEPGRAM,
   },
-  background: {
-    type: "color",
-    value: "#000000"
-  },
 };
 
 function InteractiveAvatar() {
@@ -45,7 +39,7 @@ function InteractiveAvatar() {
     useStreamingAvatarSession();
   const { startVoiceChat, stopVoiceChat, isVoiceChatting } = useVoiceChat();
 
-  const [config, setConfig] = useState<StartAvatarRequest>(DEFAULT_CONFIG);
+  const [config] = useState<StartAvatarRequest>(DEFAULT_CONFIG);
   const [selectedLanguage, setSelectedLanguage] = useState("fr");
 
   const mediaStream = useRef<HTMLVideoElement>(null);
@@ -63,34 +57,21 @@ function InteractiveAvatar() {
     }
   }
 
-  const startSessionV2 = useMemoizedFn(async (isVoiceChat: boolean) => {
+  const startSessionV2 = useMemoizedFn(async () => {
     try {
       const newToken = await fetchAccessToken();
       const avatar = initAvatar(newToken);
 
-      avatar.on(StreamingEvents.AVATAR_START_TALKING, (e) => {
-        console.log("Avatar started talking", e);
-      });
-      avatar.on(StreamingEvents.AVATAR_STOP_TALKING, (e) => {
-        console.log("Avatar stopped talking", e);
-      });
-      avatar.on(StreamingEvents.STREAM_DISCONNECTED, () => {
-        console.log("Stream disconnected");
-      });
       avatar.on(StreamingEvents.STREAM_READY, (event) => {
-        console.log(">>>>> Stream ready:", event.detail);
+        console.log("Stream ready:", event.detail);
       });
 
       const updatedConfig = { 
         ...config, 
-        language: selectedLanguage,
-        background: { type: "color", value: "#000000" }
+        language: selectedLanguage
       };
       await startAvatar(updatedConfig);
-
-      if (isVoiceChat) {
-        await startVoiceChat();
-      }
+      await startVoiceChat();
     } catch (error) {
       console.error("Error starting avatar session:", error);
     }
@@ -110,25 +91,27 @@ function InteractiveAvatar() {
   }, [mediaStream, stream]);
 
   return (
-    // ✅ Container responsive - s'adapte à l'iframe
-    <div className="w-full min-h-screen flex items-center justify-center p-4" style={{ background: '#000' }}>
+    <div className="w-full h-screen flex items-center justify-center bg-black">
       <div 
         className="flex flex-col rounded-xl overflow-hidden shadow-2xl"
         style={{ 
           width: '100%',
-          maxWidth: '600px', // ✅ Taille réduite et adaptable
+          maxWidth: '600px',
           background: '#18181b'
         }}
       >
-        {/* ✅ ZONE AVATAR - Format compact */}
         <div 
-          className="relative w-full bg-black overflow-hidden flex flex-col items-center justify-center"
-          style={{ height: '400px' }} // ✅ Hauteur fixe réduite
+          className="relative w-full bg-black overflow-hidden flex items-center justify-center"
+          style={{ height: '450px' }}
         >
-          {sessionState !== StreamingAvatarSessionState.INACTIVE ? (
+          {sessionState === StreamingAvatarSessionState.CONNECTED ? (
             <AvatarVideo ref={mediaStream} />
+          ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
+            <div className="flex items-center justify-center">
+              <LoadingIcon />
+            </div>
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-black">
+            <div className="w-full h-full flex items-center justify-center">
               <div 
                 className="rounded-2xl p-6 flex flex-col items-center gap-4"
                 style={{
@@ -138,26 +121,21 @@ function InteractiveAvatar() {
                   width: '90%'
                 }}
               >
-                {/* SÉLECTEUR DE LANGUE */}
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
                   className="w-full px-4 py-2 rounded-lg text-white border-0 outline-none text-sm"
-                  style={{ 
-                    background: 'rgba(0, 0, 0, 0.3)',
-                  }}
+                  style={{ background: 'rgba(0, 0, 0, 0.3)' }}
                 >
                   <option value="fr">🇫🇷 Français</option>
                   <option value="en">🇬🇧 English</option>
                   <option value="es">🇪🇸 Español</option>
                   <option value="de">🇩🇪 Deutsch</option>
                   <option value="it">🇮🇹 Italiano</option>
-                  <option value="pt">🇵🇹 Português</option>
                 </select>
 
-                {/* BOUTON CHAT NOW */}
                 <button
-                  onClick={() => startSessionV2(true)}
+                  onClick={startSessionV2}
                   className="w-full px-6 py-2 rounded-full text-white font-semibold transition-all hover:scale-105"
                   style={{
                     background: '#480559',
@@ -172,29 +150,20 @@ function InteractiveAvatar() {
           )}
         </div>
 
-        {/* ✅ CONTRÔLES EN BAS - Compacts */}
-        <div className="flex flex-col gap-2 items-center justify-center p-3" style={{ background: '#27272a' }}>
-          {sessionState === StreamingAvatarSessionState.CONNECTED ? (
-            <div className="w-full flex flex-col items-center gap-2">
-              <AvatarControls />
-              
-              {isVoiceChatting && (
-                <button
-                  onClick={stopVoiceChat}
-                  className="px-4 py-2 rounded-lg text-white text-sm font-medium transition-all hover:scale-105"
-                  style={{
-                    background: '#dc2626',
-                    boxShadow: '0 2px 10px rgba(220, 38, 38, 0.3)'
-                  }}
-                >
-                  Interrompre
-                </button>
-              )}
-            </div>
-          ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
-            <LoadingIcon />
-          ) : null}
-        </div>
+        {sessionState === StreamingAvatarSessionState.CONNECTED && (
+          <div className="flex flex-col gap-2 items-center p-3" style={{ background: '#27272a' }}>
+            <AvatarControls />
+            {isVoiceChatting && (
+              <button
+                onClick={stopVoiceChat}
+                className="px-4 py-2 rounded-lg text-white text-sm font-medium"
+                style={{ background: '#dc2626' }}
+              >
+                Interrompre
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
