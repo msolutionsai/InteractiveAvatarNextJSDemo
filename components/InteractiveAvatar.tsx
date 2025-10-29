@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useStreamingAvatarSession } from "./logic/useStreamingAvatarSession";
 import { useVoiceChat } from "./logic/useVoiceChat";
 import { useMessageHistory } from "./logic/useMessageHistory";
@@ -9,9 +9,14 @@ import {
   StreamingAvatarSessionState,
 } from "./logic/context";
 import { AvatarVideo } from "./AvatarSession/AvatarVideo";
-import { AvatarControls } from "./AvatarSession/AvatarControls";
 import { Button } from "./Button";
 import { Select } from "./Select";
+import {
+  AvatarQuality,
+  VoiceChatTransport,
+  VoiceEmotion,
+  ElevenLabsModel,
+} from "@heygen/streaming-avatar";
 
 export default function InteractiveAvatar() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,18 +33,18 @@ export default function InteractiveAvatar() {
   const handleStart = async () => {
     try {
       await startAvatar({
-        quality: "high",
+        quality: AvatarQuality.High,
         avatarName: "katya",
         knowledgeId:
           process.env.NEXT_PUBLIC_HEYGEN_KNOWLEDGE_ID ||
           "ff7e415d125e41a3bfbf0665877075d4",
         voice: {
           rate: 1.2,
-          emotion: "FRIENDLY",
-          model: "eleven_multilingual_v2",
+          emotion: VoiceEmotion.FRIENDLY,
+          model: ElevenLabsModel.eleven_multilingual_v2,
         },
         language: language,
-        voiceChatTransport: "websocket",
+        voiceChatTransport: VoiceChatTransport.WEBSOCKET,
         sttSettings: { model: "gpt-4o-mini-transcribe" },
       });
       setSessionState(StreamingAvatarSessionState.CONNECTED);
@@ -117,9 +122,7 @@ export default function InteractiveAvatar() {
                 backgroundColor: "#480559",
                 border: "1px solid #480559",
               }}
-              onClick={
-                isVoiceChatActive ? stopVoiceChat : startVoiceChat
-              }
+              onClick={isVoiceChatActive ? stopVoiceChat : startVoiceChat}
             >
               {isVoiceChatActive ? "Couper micro" : "Activer micro"}
             </Button>
