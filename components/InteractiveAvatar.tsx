@@ -29,8 +29,6 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
   language: "fr",
   voiceChatTransport: VoiceChatTransport.WEBSOCKET,
   sttSettings: { provider: STTProvider.DEEPGRAM },
-  // Fond côté moteur (évite l'écran vert)
-  background: { color: "#0e0c1d" },
 };
 
 function InteractiveAvatar() {
@@ -52,7 +50,6 @@ function InteractiveAvatar() {
     try {
       const token = await fetchAccessToken();
       const avatar = initAvatar(token);
-      // optionnel: hook de debug quand le flux est prêt
       avatar.on(StreamingEvents.STREAM_READY, () => {});
       await startAvatar({ ...config, language: selectedLanguage });
       await startVoiceChat();
