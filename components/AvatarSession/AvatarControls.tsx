@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import { Mic, MicOff, MessageSquare, Power } from "lucide-react";
 import { useVoiceChat } from "../logic/useVoiceChat";
 import { useStreamingAvatarSession } from "../logic/useStreamingAvatarSession";
 
@@ -12,7 +11,6 @@ export const AvatarControls: React.FC = () => {
     stopVoiceChat,
     isVoiceChatActive,
   } = useVoiceChat();
-
   const { stopAvatar } = useStreamingAvatarSession();
 
   const handleEndChat = () => {
@@ -33,33 +31,27 @@ export const AvatarControls: React.FC = () => {
       {/* 🎙️ Micro */}
       <button
         onClick={isMuted ? unmuteInputAudio : muteInputAudio}
-        className="flex items-center justify-center w-9 h-9 rounded-full bg-transparent border border-[#480559] text-white hover:bg-[#480559]/30 transition-all"
-        title={isMuted ? 'Activer le micro' : 'Couper le micro'}
+        className="flex items-center justify-center px-3 py-1 rounded-full text-white text-sm font-medium border border-[#480559] hover:bg-[#480559]/30 transition-all"
+        style={{ minWidth: "90px" }}
       >
-        {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
+        {isMuted ? "Activer micro" : "Couper micro"}
       </button>
 
-      {/* 📄 Texte (champ non fonctionnel pour l’instant) */}
+      {/* 💬 Message texte */}
       <button
-        className="flex items-center justify-center w-9 h-9 rounded-full bg-transparent border border-[#480559] text-white hover:bg-[#480559]/30 transition-all"
-        title="Saisir un message"
-      >
-        <MessageSquare size={18} />
-      </button>
-
-      {/* Champ texte (placeholder, non fonctionnel) */}
-      <input
-        type="text"
-        placeholder="Tapez ici..."
         disabled
-        className="flex-1 h-9 bg-transparent text-white placeholder-gray-400 text-sm border border-[#480559] rounded-full px-3 outline-none opacity-60"
-      />
+        className="flex items-center justify-center px-3 py-1 rounded-full text-white text-sm font-medium border border-[#480559] opacity-70"
+        style={{ minWidth: "90px" }}
+      >
+        Saisie texte
+      </button>
 
       {/* 🔴 Interrompre */}
       {isVoiceChatActive && (
         <button
           onClick={handleEndChat}
           className="px-4 py-1 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-all"
+          style={{ minWidth: "110px" }}
         >
           Interrompre
         </button>
