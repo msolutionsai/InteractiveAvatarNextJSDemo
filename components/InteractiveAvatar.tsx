@@ -22,7 +22,7 @@ import { LoadingIcon } from "./Icons";
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
-  knowledgeId: "ff7e415d125e41a3bfbf0665877705d4", // ✅ Ta base de connaissance
+  knowledgeId: "ff7e415d125e41a3bfbf0665877075d4", // ✅ Ta base de connaissance
   voice: {
     rate: 1.5,
     emotion: VoiceEmotion.FRIENDLY,
