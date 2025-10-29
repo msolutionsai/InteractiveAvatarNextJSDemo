@@ -1,60 +1,61 @@
-"use client";
-import React from "react";
+import React, { useState } from "react";
 import { useVoiceChat } from "../logic/useVoiceChat";
-import { useStreamingAvatarSession } from "../logic/useStreamingAvatarSession";
+import { useInterrupt } from "../logic/useInterrupt";
 
 export const AvatarControls: React.FC = () => {
-  const {
-    isMuted,
-    muteInputAudio,
-    unmuteInputAudio,
-    stopVoiceChat,
-    isVoiceChatActive,
-  } = useVoiceChat();
-  const { stopAvatar } = useStreamingAvatarSession();
-
-  const handleEndChat = () => {
-    stopVoiceChat();
-    stopAvatar();
-  };
+  const { isVoiceChatActive, isVoiceChatLoading, startVoiceChat, stopVoiceChat } =
+    useVoiceChat();
+  const { interrupt } = useInterrupt();
+  const [textInput, setTextInput] = useState("");
+  const [showTextInput, setShowTextInput] = useState(false);
 
   return (
     <div
-      className="flex items-center justify-center gap-3 w-full px-4 py-2"
+      className="flex flex-col w-full items-center justify-center gap-3 p-3 rounded-b-xl"
       style={{
-        background: "rgba(0,0,0,0.7)",
-        borderTop: "1px solid #480559",
-        borderBottom: "1px solid #480559",
-        borderRadius: "0 0 16px 16px",
+        backgroundColor: "rgba(0, 0, 0, 0.5)", // fond transparent
+        borderTop: "1px solid #480559", // fine bordure violette
       }}
     >
-      {/* 🎙️ Micro */}
-      <button
-        onClick={isMuted ? unmuteInputAudio : muteInputAudio}
-        className="flex items-center justify-center px-3 py-1 rounded-full text-white text-sm font-medium border border-[#480559] hover:bg-[#480559]/30 transition-all"
-        style={{ minWidth: "90px" }}
-      >
-        {isMuted ? "Activer micro" : "Couper micro"}
-      </button>
-
-      {/* 💬 Message texte */}
-      <button
-        disabled
-        className="flex items-center justify-center px-3 py-1 rounded-full text-white text-sm font-medium border border-[#480559] opacity-70"
-        style={{ minWidth: "90px" }}
-      >
-        Saisie texte
-      </button>
-
-      {/* 🔴 Interrompre */}
-      {isVoiceChatActive && (
+      {/* Ligne des boutons */}
+      <div className="flex items-center justify-center gap-3 w-full">
+        {/* 🎙️ Micro */}
         <button
-          onClick={handleEndChat}
-          className="px-4 py-1 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-all"
-          style={{ minWidth: "110px" }}
+          onClick={() =>
+            isVoiceChatActive ? stopVoiceChat() : startVoiceChat()
+          }
+          disabled={isVoiceChatLoading}
+          className="px-4 py-2 rounded-full text-sm font-semibold text-white border border-[#480559] bg-[#480559]/60 hover:bg-[#480559]/90 transition-all"
         >
-          Interrompre
+          {isVoiceChatActive ? "🎙️ Couper micro" : "🎤 Activer micro"}
         </button>
+
+        {/* 💬 Saisie texte */}
+        <button
+          onClick={() => setShowTextInput(!showTextInput)}
+          className="px-4 py-2 rounded-full text-sm font-semibold text-white border border-[#480559] bg-[#480559]/60 hover:bg-[#480559]/90 transition-all"
+        >
+          💬 Saisie texte
+        </button>
+
+        {/* 🔴 Fin */}
+        <button
+          onClick={interrupt}
+          className="px-4 py-2 rounded-full text-sm font-semibold text-white border border-[#480559] bg-red-700 hover:bg-red-800 transition-all"
+        >
+          🔴 Fin
+        </button>
+      </div>
+
+      {/* Champ de texte optionnel */}
+      {showTextInput && (
+        <input
+          type="text"
+          value={textInput}
+          onChange={(e) => setTextInput(e.target.value)}
+          placeholder="Tapez votre message ici..."
+          className="mt-2 w-3/4 px-3 py-2 rounded-lg bg-neutral-900/70 text-white text-sm border border-[#480559] focus:outline-none focus:border-[#7c3aed]"
+        />
       )}
     </div>
   );
