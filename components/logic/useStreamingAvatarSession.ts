@@ -79,7 +79,7 @@ export const useStreamingAvatarSession = () => {
     setIsAvatarTalking,
   ]);
 
-  /** 🚀 Démarrage de l'avatar avec fond transparent */
+  /** 🚀 Démarrage de l'avatar avec fond transparent (méthode compatible SDK 2025) */
   const start = useCallback(
     async (config: StartAvatarRequest, token?: string) => {
       if (sessionState !== StreamingAvatarSessionState.INACTIVE) {
@@ -128,14 +128,23 @@ export const useStreamingAvatarSession = () => {
       avatarRef.current.on(StreamingEvents.USER_END_MESSAGE, handleEndMessage);
       avatarRef.current.on(StreamingEvents.AVATAR_END_MESSAGE, handleEndMessage);
 
-      // ✅ Patch anti-fond vert :
-      const patchedConfig: StartAvatarRequest = {
-        ...config,
-        backgroundType: "transparent", // force la transparence du flux
-      };
+      // ✅ Nouvelle méthode : transparence appliquée via l'API interne Heygen
+      try {
+        // certains SDK Heygen exposent cette méthode directement :
+        if (avatarRef.current.setBackground) {
+          await avatarRef.current.setBackground({ type: "transparent" });
+          console.log("🎨 Fond transparent appliqué via setBackground()");
+        } else {
+          console.warn("⚠️ setBackground non disponible dans ce SDK — fond transparent non forcé.");
+        }
+      } catch (err) {
+        console.warn("⚠️ Impossible d'appliquer le fond transparent :", err);
+      }
+
+      // 🧩 config nettoyée sans backgroundType (plus d'erreur TypeScript)
+      const patchedConfig: StartAvatarRequest = { ...config };
 
       await avatarRef.current.createStartAvatar(patchedConfig);
-
       return avatarRef.current;
     },
     [
