@@ -9,7 +9,7 @@ import { CloseIcon } from "../Icons";
 import { Button } from "../Button";
 
 type AvatarVideoProps = {
-  stream: MediaStream | null; // ✅ on déclare la prop attendue
+  stream: MediaStream | null; // ✅ flux vidéo reçu du SDK
 };
 
 export const AvatarVideo = forwardRef<HTMLVideoElement, AvatarVideoProps>(
@@ -18,10 +18,12 @@ export const AvatarVideo = forwardRef<HTMLVideoElement, AvatarVideoProps>(
     const { connectionQuality } = useConnectionQuality();
     const isLoaded = sessionState === StreamingAvatarSessionState.CONNECTED;
 
-    // ✅ Injecte le flux dans la vidéo
+    // ✅ injection du flux dans la balise vidéo
     const internalRef = useRef<HTMLVideoElement>(null);
     useEffect(() => {
-      const videoEl = (ref as React.RefObject<HTMLVideoElement>)?.current || internalRef.current;
+      const videoEl =
+        (ref as React.RefObject<HTMLVideoElement>)?.current ||
+        internalRef.current;
       if (videoEl && stream) {
         videoEl.srcObject = stream;
       }
@@ -31,40 +33,38 @@ export const AvatarVideo = forwardRef<HTMLVideoElement, AvatarVideoProps>(
       <div
         className="relative flex items-center justify-center w-full h-full overflow-hidden rounded-xl"
         style={{
-          backgroundColor: "#00000000", // ✅ fond transparent (pas de vert)
-          backgroundImage: "url('/freevox_overlay.png')", // logo FreeVox
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "30px 30px",
-          backgroundSize: "auto 80px",
+          // ✅ fond noir semi-transparent (aucune image)
+          backgroundColor: "rgba(0, 0, 0, 0.85)",
         }}
       >
-        {/* Indicateur qualité */}
+        {/* Indicateur de qualité */}
         {connectionQuality !== ConnectionQuality.UNKNOWN && (
           <div className="absolute top-3 left-3 bg-black/70 text-white text-xs px-3 py-1 rounded-lg z-10">
             Qualité de connexion : {connectionQuality}
           </div>
         )}
 
-        {/* Bouton fermer */}
+        {/* Bouton de fermeture */}
         {isLoaded && (
           <Button
             className="absolute top-3 right-3 !p-2 bg-[#480559]/80 hover:bg-[#480559] text-white rounded-full z-20"
             onClick={stopAvatar}
+            aria-label="Fermer"
           >
             <CloseIcon />
           </Button>
         )}
 
-        {/* Vidéo Heygen */}
+        {/* Flux vidéo HeyGen */}
         <video
           ref={ref || internalRef}
           autoPlay
           playsInline
-          muted
+          muted={false} // ✅ audio activé pour entendre la voix
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "contain", // garde ton cadrage actuel
+            objectFit: "contain",
             backgroundColor: "transparent",
             zIndex: 5,
           }}
@@ -72,7 +72,7 @@ export const AvatarVideo = forwardRef<HTMLVideoElement, AvatarVideoProps>(
           <track kind="captions" />
         </video>
 
-        {/* État de chargement */}
+        {/* Message de chargement */}
         {!isLoaded && (
           <div className="absolute inset-0 flex items-center justify-center text-white text-sm">
             Chargement de l’avatar…
