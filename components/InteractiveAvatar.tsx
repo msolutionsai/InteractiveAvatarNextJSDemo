@@ -32,8 +32,7 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
   },
   language: "fr",
   voiceChatTransport: VoiceChatTransport.WEBSOCKET,
-  sttSettings: { provider: STTProvider.DEEPGRAM }, // ✅ pas de 'model' ici
-  // ❌ ne PAS mettre 'background' / 'backgroundType' (non supporté selon ta version)
+  sttSettings: { provider: STTProvider.DEEPGRAM },
 };
 
 function InteractiveAvatar() {
@@ -81,7 +80,7 @@ function InteractiveAvatar() {
           width: "100%",
           maxWidth: "480px",
           background: "transparent",
-          border: "1px solid #480559", // fine bordure violette
+          border: "1px solid #480559",
         }}
       >
         {/* Zone vidéo / aperçu */}
@@ -90,16 +89,16 @@ function InteractiveAvatar() {
           style={{ width: "100%", height: "420px" }}
         >
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
-            <AvatarVideo ref={mediaRef} />
+            // ✅ Correction : ajout de la prop `stream`
+            <AvatarVideo ref={mediaRef} stream={stream!} />
           ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
             <div className="flex items-center justify-center">
               <LoadingIcon />
             </div>
           ) : (
-            // Écran d’accueil : image + ligne de boutons
             <div className="flex flex-col w-full h-full items-center justify-end p-4">
               <img
-                src="/katya_preview.jpg" // place dans /public
+                src="/katya_preview.jpg"
                 alt="Avatar Preview"
                 style={{
                   borderRadius: "10px",
@@ -111,7 +110,6 @@ function InteractiveAvatar() {
               />
 
               <div className="mt-4 w-full flex items-center justify-center gap-2">
-                {/* Sélecteur langue plus étroit, flèche non collée */}
                 <div className="relative">
                   <select
                     value={selectedLanguage}
@@ -125,7 +123,6 @@ function InteractiveAvatar() {
                     <option value="de">🇩🇪 Allemand</option>
                     <option value="it">🇮🇹 Italien</option>
                   </select>
-                  {/* petite flèche, légèrement décalée */}
                   <span
                     className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300"
                     style={{ fontSize: 10 }}
@@ -146,13 +143,11 @@ function InteractiveAvatar() {
           )}
         </div>
 
-        {/* Barre de contrôle (uniquement quand la session est active) */}
         {sessionState === StreamingAvatarSessionState.CONNECTED && (
           <div
             className="flex w-full items-center justify-center gap-2 p-3"
             style={{ background: "rgba(0,0,0,0.5)" }}
           >
-            {/* 🎙️ Micro (toggle) */}
             <Button
               className="text-white text-sm font-medium px-4 py-2 rounded-full"
               style={{
@@ -162,12 +157,11 @@ function InteractiveAvatar() {
               }}
               onClick={() =>
                 isVoiceChatActive ? stopVoiceChat() : startVoiceChat()
-              } // ✅ corrige le type onClick
+              }
             >
               {isVoiceChatActive ? "Couper micro" : "Activer micro"}
             </Button>
 
-            {/* 💬 Saisie texte (placeholder visuel) */}
             <Button
               className="text-white text-sm font-medium px-4 py-2 rounded-full"
               style={{
@@ -175,15 +169,11 @@ function InteractiveAvatar() {
                 border: "1px solid #480559",
                 color: "#ffffff",
               }}
-              onClick={() => {
-                // Placeholder: simple feedback visuel pour le moment
-                alert("Zone de saisie texte (démo visuelle)");
-              }}
+              onClick={() => alert("Zone de saisie texte (démo)")}
             >
               Saisie texte
             </Button>
 
-            {/* 🔴 Fin */}
             <Button
               className="text-white text-sm font-medium px-4 py-2 rounded-full"
               style={{
