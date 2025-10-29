@@ -33,11 +33,12 @@ export const useStreamingAvatarSession = () => {
 
   useMessageHistory();
 
+  /** 🧠 Initialisation du client Heygen */
   const init = useCallback(
     (token: string) => {
       avatarRef.current = new StreamingAvatar({
         token,
-        basePath: basePath,
+        basePath,
       });
 
       return avatarRef.current;
@@ -45,6 +46,7 @@ export const useStreamingAvatarSession = () => {
     [basePath, avatarRef],
   );
 
+  /** 🎥 Quand le flux vidéo est prêt */
   const handleStream = useCallback(
     ({ detail }: { detail: MediaStream }) => {
       setStream(detail);
@@ -53,6 +55,7 @@ export const useStreamingAvatarSession = () => {
     [setSessionState, setStream],
   );
 
+  /** 🛑 Arrêt complet de la session */
   const stop = useCallback(async () => {
     avatarRef.current?.off(StreamingEvents.STREAM_READY, handleStream);
     avatarRef.current?.off(StreamingEvents.STREAM_DISCONNECTED, stop);
@@ -76,6 +79,7 @@ export const useStreamingAvatarSession = () => {
     setIsAvatarTalking,
   ]);
 
+  /** 🚀 Démarrage de l'avatar avec fond transparent */
   const start = useCallback(
     async (config: StartAvatarRequest, token?: string) => {
       if (sessionState !== StreamingAvatarSessionState.INACTIVE) {
@@ -83,9 +87,7 @@ export const useStreamingAvatarSession = () => {
       }
 
       if (!avatarRef.current) {
-        if (!token) {
-          throw new Error("Token is required");
-        }
+        if (!token) throw new Error("Token is required");
         init(token);
       }
 
@@ -94,6 +96,8 @@ export const useStreamingAvatarSession = () => {
       }
 
       setSessionState(StreamingAvatarSessionState.CONNECTING);
+
+      // ✅ Écouteurs principaux
       avatarRef.current.on(StreamingEvents.STREAM_READY, handleStream);
       avatarRef.current.on(StreamingEvents.STREAM_DISCONNECTED, stop);
       avatarRef.current.on(
@@ -101,18 +105,18 @@ export const useStreamingAvatarSession = () => {
         ({ detail }: { detail: ConnectionQuality }) =>
           setConnectionQuality(detail),
       );
-      avatarRef.current.on(StreamingEvents.USER_START, () => {
-        setIsUserTalking(true);
-      });
-      avatarRef.current.on(StreamingEvents.USER_STOP, () => {
-        setIsUserTalking(false);
-      });
-      avatarRef.current.on(StreamingEvents.AVATAR_START_TALKING, () => {
-        setIsAvatarTalking(true);
-      });
-      avatarRef.current.on(StreamingEvents.AVATAR_STOP_TALKING, () => {
-        setIsAvatarTalking(false);
-      });
+      avatarRef.current.on(StreamingEvents.USER_START, () =>
+        setIsUserTalking(true),
+      );
+      avatarRef.current.on(StreamingEvents.USER_STOP, () =>
+        setIsUserTalking(false),
+      );
+      avatarRef.current.on(StreamingEvents.AVATAR_START_TALKING, () =>
+        setIsAvatarTalking(true),
+      );
+      avatarRef.current.on(StreamingEvents.AVATAR_STOP_TALKING, () =>
+        setIsAvatarTalking(false),
+      );
       avatarRef.current.on(
         StreamingEvents.USER_TALKING_MESSAGE,
         handleUserTalkingMessage,
@@ -122,12 +126,15 @@ export const useStreamingAvatarSession = () => {
         handleStreamingTalkingMessage,
       );
       avatarRef.current.on(StreamingEvents.USER_END_MESSAGE, handleEndMessage);
-      avatarRef.current.on(
-        StreamingEvents.AVATAR_END_MESSAGE,
-        handleEndMessage,
-      );
+      avatarRef.current.on(StreamingEvents.AVATAR_END_MESSAGE, handleEndMessage);
 
-      await avatarRef.current.createStartAvatar(config);
+      // ✅ Patch anti-fond vert :
+      const patchedConfig: StartAvatarRequest = {
+        ...config,
+        backgroundType: "transparent", // force la transparence du flux
+      };
+
+      await avatarRef.current.createStartAvatar(patchedConfig);
 
       return avatarRef.current;
     },
