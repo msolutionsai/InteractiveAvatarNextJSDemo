@@ -33,7 +33,7 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
   language: "fr",
   voiceChatTransport: VoiceChatTransport.WEBSOCKET,
   sttSettings: { provider: STTProvider.DEEPGRAM },
-  background: { color: "#00000000" }, // ✅ fond transparent
+  backgroundType: "transparent", // ✅ fond transparent correct
 };
 
 function InteractiveAvatar() {
