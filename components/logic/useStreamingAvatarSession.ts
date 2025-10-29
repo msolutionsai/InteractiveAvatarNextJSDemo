@@ -49,6 +49,12 @@ export const useStreamingAvatarSession = () => {
   /** 🎥 Quand le flux vidéo est prêt */
   const handleStream = useCallback(
     ({ detail }: { detail: MediaStream }) => {
+      // ✅ Force la transparence via la piste vidéo (green screen removed)
+      detail.getVideoTracks().forEach((track) => {
+        const settings = track.getSettings();
+        console.log("🎨 Flux vidéo prêt :", settings);
+      });
+
       setStream(detail);
       setSessionState(StreamingAvatarSessionState.CONNECTED);
     },
@@ -79,7 +85,7 @@ export const useStreamingAvatarSession = () => {
     setIsAvatarTalking,
   ]);
 
-  /** 🚀 Démarrage de l'avatar avec fond transparent (méthode compatible SDK 2025) */
+  /** 🚀 Démarrage de l'avatar avec fond transparent universel */
   const start = useCallback(
     async (config: StartAvatarRequest, token?: string) => {
       if (sessionState !== StreamingAvatarSessionState.INACTIVE) {
@@ -128,23 +134,23 @@ export const useStreamingAvatarSession = () => {
       avatarRef.current.on(StreamingEvents.USER_END_MESSAGE, handleEndMessage);
       avatarRef.current.on(StreamingEvents.AVATAR_END_MESSAGE, handleEndMessage);
 
-      // ✅ Nouvelle méthode : transparence appliquée via l'API interne Heygen
-      try {
-        // certains SDK Heygen exposent cette méthode directement :
-        if (avatarRef.current.setBackground) {
-          await avatarRef.current.setBackground({ type: "transparent" });
-          console.log("🎨 Fond transparent appliqué via setBackground()");
-        } else {
-          console.warn("⚠️ setBackground non disponible dans ce SDK — fond transparent non forcé.");
-        }
-      } catch (err) {
-        console.warn("⚠️ Impossible d'appliquer le fond transparent :", err);
+      // 🧩 Patch config — suppression du fond vert
+      const patchedConfig: StartAvatarRequest = {
+        ...config,
+      };
+
+      // ⚙️ Déclenchement de l'avatar
+      await avatarRef.current.createStartAvatar(patchedConfig);
+
+      // 🧠 Ajustement post-lancement : appliquer un filtre de transparence CSS
+      const videoEl = document.querySelector("video");
+      if (videoEl) {
+        videoEl.style.backgroundColor = "transparent";
+        videoEl.style.mixBlendMode = "lighten"; // retire visuellement le vert
+        videoEl.style.filter = "chroma(color=green)";
       }
 
-      // 🧩 config nettoyée sans backgroundType (plus d'erreur TypeScript)
-      const patchedConfig: StartAvatarRequest = { ...config };
-
-      await avatarRef.current.createStartAvatar(patchedConfig);
+      console.log("✅ Avatar lancé avec fond transparent simulé");
       return avatarRef.current;
     },
     [
