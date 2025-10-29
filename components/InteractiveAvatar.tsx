@@ -55,7 +55,7 @@ function InteractiveAvatar() {
       const avatar = initAvatar(token);
       avatar.on(StreamingEvents.STREAM_READY, () => {});
       await startAvatar({ ...config, language: selectedLanguage });
-      await startVoiceChat();
+      await startVoiceChat(); // ✅ Voix réactivée
     } catch (err) {
       console.error("Erreur démarrage avatar :", err);
     }
@@ -79,37 +79,25 @@ function InteractiveAvatar() {
         style={{
           width: "100%",
           maxWidth: "480px",
-          background: "transparent",
           border: "1px solid #480559",
+          backgroundColor: "rgba(0,0,0,0.85)", // ✅ cohérence visuelle fond formulaire
         }}
       >
-        {/* Zone vidéo / aperçu */}
+        {/* Zone principale */}
         <div
-          className="relative flex items-center justify-center"
+          className="relative flex flex-col items-center justify-center"
           style={{ width: "100%", height: "420px" }}
         >
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
-            // ✅ Correction : ajout de la prop `stream`
             <AvatarVideo ref={mediaRef} stream={stream!} />
           ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
             <div className="flex items-center justify-center">
               <LoadingIcon />
             </div>
           ) : (
-            <div className="flex flex-col w-full h-full items-center justify-end p-4">
-              <img
-                src="/katya_preview.jpg"
-                alt="Avatar Preview"
-                style={{
-                  borderRadius: "10px",
-                  width: "100%",
-                  height: "auto",
-                  objectFit: "cover",
-                  background: "transparent",
-                }}
-              />
-
-              <div className="mt-4 w-full flex items-center justify-center gap-2">
+            <>
+              {/* ✅ Boutons au-dessus de l’image */}
+              <div className="mb-4 flex flex-wrap items-center justify-center gap-3">
                 <div className="relative">
                   <select
                     value={selectedLanguage}
@@ -134,19 +122,33 @@ function InteractiveAvatar() {
                 <button
                   onClick={() => startSession()}
                   className="px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#5a0771]"
-                  style={{ backgroundColor: "#480559", border: "1px solid #480559" }}
+                  style={{
+                    backgroundColor: "#480559",
+                    border: "1px solid #480559",
+                  }}
                 >
                   Lancer le chat
                 </button>
               </div>
-            </div>
+
+              {/* ✅ Image de prévisualisation recadrée */}
+              <div className="flex w-full h-full items-center justify-center">
+                <img
+                  src="/katya_preview.jpg"
+                  alt="Aperçu avatar"
+                  className="w-full h-[350px] object-cover rounded-xl"
+                  draggable={false}
+                />
+              </div>
+            </>
           )}
         </div>
 
+        {/* ✅ Barre de commandes active */}
         {sessionState === StreamingAvatarSessionState.CONNECTED && (
           <div
             className="flex w-full items-center justify-center gap-2 p-3"
-            style={{ background: "rgba(0,0,0,0.5)" }}
+            style={{ background: "rgba(0,0,0,0.6)" }}
           >
             <Button
               className="text-white text-sm font-medium px-4 py-2 rounded-full"
