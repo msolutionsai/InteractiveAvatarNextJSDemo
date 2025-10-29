@@ -1,5 +1,4 @@
 "use client";
-
 import {
   AvatarQuality,
   StreamingEvents,
@@ -13,7 +12,6 @@ import { useEffect, useRef, useState } from "react";
 import { useMemoizedFn, useUnmount } from "ahooks";
 
 import { AvatarVideo } from "./AvatarSession/AvatarVideo";
-import { AvatarControls } from "./AvatarSession/AvatarControls";
 import { useStreamingAvatarSession } from "./logic/useStreamingAvatarSession";
 import { useVoiceChat } from "./logic/useVoiceChat";
 import { StreamingAvatarProvider, StreamingAvatarSessionState } from "./logic";
@@ -22,7 +20,9 @@ import { LoadingIcon } from "./Icons";
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
-  knowledgeId: "ff7e415d125e41a3bfbf0665877075d4", // ✅ Ta base de connaissance
+  knowledgeId:
+    process.env.NEXT_PUBLIC_HEYGEN_KNOWLEDGE_ID ||
+    "ff7e415d125e41a3bfbf0665877075d4",
   voice: {
     rate: 1.5,
     emotion: VoiceEmotion.FRIENDLY,
@@ -36,7 +36,7 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
 function InteractiveAvatar() {
   const { initAvatar, startAvatar, stopAvatar, sessionState, stream } =
     useStreamingAvatarSession();
-  const { startVoiceChat } = useVoiceChat();
+  const { startVoiceChat, stopVoiceChat, isVoiceChatActive } = useVoiceChat();
 
   const [config] = useState<StartAvatarRequest>(DEFAULT_CONFIG);
   const [selectedLanguage, setSelectedLanguage] = useState("fr");
@@ -52,11 +52,18 @@ function InteractiveAvatar() {
     try {
       const token = await fetchAccessToken();
       const avatar = initAvatar(token);
+
       avatar.on(StreamingEvents.STREAM_READY, () => {});
-      await startAvatar({ ...config, language: selectedLanguage });
+      await startAvatar({
+        ...config,
+        language: selectedLanguage,
+        // fond noir côté moteur
+        background: { color: "#000000" },
+      } as unknown as StartAvatarRequest);
+
       await startVoiceChat();
     } catch (err) {
-      console.error("Erreur au démarrage de l'avatar :", err);
+      console.error("Error starting avatar session:", err);
     }
   });
 
@@ -76,15 +83,15 @@ function InteractiveAvatar() {
   return (
     <div className="flex items-center justify-center w-full h-screen bg-black overflow-hidden">
       <div
-        className="flex flex-col items-center justify-center rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm"
+        className="flex flex-col items-center justify-center rounded-xl overflow-hidden shadow-2xl"
         style={{
           width: "100%",
-          maxWidth: "520px",
-          background: "rgba(0,0,0,0.7)",
-          border: "1px solid #480559",
+          maxWidth: "480px", // on garde ton format exact
+          background:
+            "radial-gradient(ellipse at center, #0e0c1d 0%, #1b0033 100%)",
         }}
       >
-        {/* Zone vidéo */}
+        {/* Cadre vidéo */}
         <div
           className="relative flex items-center justify-center"
           style={{ width: "100%", height: "420px" }}
@@ -92,32 +99,28 @@ function InteractiveAvatar() {
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
             <AvatarVideo ref={mediaRef} />
           ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center">
               <LoadingIcon />
             </div>
           ) : (
-            // 🟣 Écran d’accueil
+            // Écran d’accueil
             <div className="flex flex-col w-full h-full items-center justify-end p-4">
               <img
-                src="/avatar-preview.png"
+                src="/katya_preview.jpg"
                 alt="Aperçu avatar"
                 style={{
                   borderRadius: "10px",
                   width: "100%",
                   height: "auto",
                   objectFit: "cover",
-                  background: "transparent",
-                }}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
+                  background: "rgba(0, 0, 0, 0.85)",
                 }}
               />
-
               <div className="mt-4 w-full flex items-center justify-center gap-2">
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="flex-1 px-3 py-2 text-sm text-white rounded-full bg-black/60 border border-[#480559] focus:outline-none"
+                  className="flex-1 px-3 py-2 text-sm text-white rounded-full bg-neutral-800 border border-neutral-700"
                 >
                   <option value="fr">🇫🇷 Français</option>
                   <option value="en">🇬🇧 Anglais</option>
@@ -125,10 +128,9 @@ function InteractiveAvatar() {
                   <option value="de">🇩🇪 Allemand</option>
                   <option value="it">🇮🇹 Italien</option>
                 </select>
-
                 <button
                   onClick={startSession}
-                  className="px-4 py-2 text-sm font-semibold text-white rounded-full bg-[#480559] hover:bg-[#5a1a91] transition-all"
+                  className="px-4 py-2 text-sm font-semibold text-white rounded-full bg-[#480559] hover:bg-purple-800"
                 >
                   Lancer le chat
                 </button>
@@ -137,17 +139,17 @@ function InteractiveAvatar() {
           )}
         </div>
 
-        {/* Barre FreeVox */}
+        {/* Barre de contrôle */}
         {sessionState === StreamingAvatarSessionState.CONNECTED && (
-          <div
-            className="flex flex-col items-center justify-center w-full animate-fadeIn"
-            style={{
-              background: "rgba(0,0,0,0.6)",
-              borderTop: "1px solid #480559",
-              borderRadius: "0 0 20px 20px",
-            }}
-          >
-            <AvatarControls />
+          <div className="flex w-full items-center justify-center gap-3 p-3 bg-neutral-900">
+            {isVoiceChatActive && (
+              <button
+                onClick={stopVoiceChat}
+                className="px-4 py-2 text-sm font-semibold text-white rounded-full bg-red-600 hover:bg-red-700"
+              >
+                Interrompre
+              </button>
+            )}
           </div>
         )}
       </div>
