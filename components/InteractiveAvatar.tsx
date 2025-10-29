@@ -1,4 +1,5 @@
 "use client";
+
 import {
   AvatarQuality,
   StreamingEvents,
@@ -12,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMemoizedFn, useUnmount } from "ahooks";
 
 import { AvatarVideo } from "./AvatarSession/AvatarVideo";
+import { AvatarControls } from "./AvatarSession/AvatarControls";
 import { useStreamingAvatarSession } from "./logic/useStreamingAvatarSession";
 import { useVoiceChat } from "./logic/useVoiceChat";
 import { StreamingAvatarProvider, StreamingAvatarSessionState } from "./logic";
@@ -20,7 +22,7 @@ import { LoadingIcon } from "./Icons";
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
-  knowledgeId: "ff7e415d125e41a3bfbf0665877705d4",
+  knowledgeId: "ff7e415d125e41a3bfbf0665877705d4", // ✅ Ta base de connaissance
   voice: {
     rate: 1.5,
     emotion: VoiceEmotion.FRIENDLY,
@@ -34,7 +36,7 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
 function InteractiveAvatar() {
   const { initAvatar, startAvatar, stopAvatar, sessionState, stream } =
     useStreamingAvatarSession();
-  const { startVoiceChat, stopVoiceChat, isVoiceChatActive } = useVoiceChat();
+  const { startVoiceChat } = useVoiceChat();
 
   const [config] = useState<StartAvatarRequest>(DEFAULT_CONFIG);
   const [selectedLanguage, setSelectedLanguage] = useState("fr");
@@ -54,7 +56,7 @@ function InteractiveAvatar() {
       await startAvatar({ ...config, language: selectedLanguage });
       await startVoiceChat();
     } catch (err) {
-      console.error("Error starting avatar session:", err);
+      console.error("Erreur au démarrage de l'avatar :", err);
     }
   });
 
@@ -74,15 +76,15 @@ function InteractiveAvatar() {
   return (
     <div className="flex items-center justify-center w-full h-screen bg-black overflow-hidden">
       <div
-        className="flex flex-col items-center justify-center rounded-xl overflow-hidden shadow-2xl"
+        className="flex flex-col items-center justify-center rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm"
         style={{
           width: "100%",
-          maxWidth: "480px",
-          background:
-            "radial-gradient(ellipse at center, #0e0c1d 0%, #1b0033 100%)",
+          maxWidth: "520px",
+          background: "rgba(0,0,0,0.7)",
+          border: "1px solid #480559",
         }}
       >
-        {/* Cadre vidéo / aperçu */}
+        {/* Zone vidéo */}
         <div
           className="relative flex items-center justify-center"
           style={{ width: "100%", height: "420px" }}
@@ -90,11 +92,11 @@ function InteractiveAvatar() {
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
             <AvatarVideo ref={mediaRef} />
           ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center h-full">
               <LoadingIcon />
             </div>
           ) : (
-            // Écran d’accueil (aperçu + boutons sur UNE seule ligne)
+            // 🟣 Écran d’accueil
             <div className="flex flex-col w-full h-full items-center justify-end p-4">
               <img
                 src="/avatar-preview.png"
@@ -104,8 +106,10 @@ function InteractiveAvatar() {
                   width: "100%",
                   height: "auto",
                   objectFit: "cover",
-                  background:
-                    "radial-gradient(ellipse at center, #0e0c1d 0%, #1b0033 100%)",
+                  background: "transparent",
+                }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
                 }}
               />
 
@@ -113,7 +117,7 @@ function InteractiveAvatar() {
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="flex-1 px-3 py-2 text-sm text-white rounded-full bg-neutral-800 border border-neutral-700"
+                  className="flex-1 px-3 py-2 text-sm text-white rounded-full bg-black/60 border border-[#480559] focus:outline-none"
                 >
                   <option value="fr">🇫🇷 Français</option>
                   <option value="en">🇬🇧 Anglais</option>
@@ -124,7 +128,7 @@ function InteractiveAvatar() {
 
                 <button
                   onClick={startSession}
-                  className="px-4 py-2 text-sm font-semibold text-white rounded-full bg-purple-700 hover:bg-purple-800"
+                  className="px-4 py-2 text-sm font-semibold text-white rounded-full bg-[#480559] hover:bg-[#5a1a91] transition-all"
                 >
                   Lancer le chat
                 </button>
@@ -133,17 +137,17 @@ function InteractiveAvatar() {
           )}
         </div>
 
-        {/* Barre de contrôle (uniquement quand la session est active) */}
+        {/* Barre FreeVox */}
         {sessionState === StreamingAvatarSessionState.CONNECTED && (
-          <div className="flex w-full items-center justify-center gap-3 p-3 bg-neutral-900">
-            {isVoiceChatActive && (
-              <button
-                onClick={stopVoiceChat}
-                className="px-4 py-2 text-sm font-semibold text-white rounded-full bg-red-600 hover:bg-red-700"
-              >
-                Interrompre
-              </button>
-            )}
+          <div
+            className="flex flex-col items-center justify-center w-full animate-fadeIn"
+            style={{
+              background: "rgba(0,0,0,0.6)",
+              borderTop: "1px solid #480559",
+              borderRadius: "0 0 20px 20px",
+            }}
+          >
+            <AvatarControls />
           </div>
         )}
       </div>
