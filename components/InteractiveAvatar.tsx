@@ -1,6 +1,13 @@
 "use client";
 
 import React, { useRef, useState } from "react";
+import {
+  AvatarQuality,
+  VoiceChatTransport,
+  VoiceEmotion,
+  ElevenLabsModel,
+  STTProvider,
+} from "@heygen/streaming-avatar";
 import { useStreamingAvatarSession } from "./logic/useStreamingAvatarSession";
 import { useVoiceChat } from "./logic/useVoiceChat";
 import { useMessageHistory } from "./logic/useMessageHistory";
@@ -11,12 +18,6 @@ import {
 import { AvatarVideo } from "./AvatarSession/AvatarVideo";
 import { Button } from "./Button";
 import { Select } from "./Select";
-import {
-  AvatarQuality,
-  VoiceChatTransport,
-  VoiceEmotion,
-  ElevenLabsModel,
-} from "@heygen/streaming-avatar";
 
 export default function InteractiveAvatar() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,7 +35,7 @@ export default function InteractiveAvatar() {
     try {
       await startAvatar({
         quality: AvatarQuality.High,
-        avatarName: "katya",
+        avatarName: "Katya_Pink_Suit_public", // ✅ ton avatar initial
         knowledgeId:
           process.env.NEXT_PUBLIC_HEYGEN_KNOWLEDGE_ID ||
           "ff7e415d125e41a3bfbf0665877075d4",
@@ -45,7 +46,9 @@ export default function InteractiveAvatar() {
         },
         language: language,
         voiceChatTransport: VoiceChatTransport.WEBSOCKET,
-        sttSettings: { model: "gpt-4o-mini-transcribe" },
+        sttSettings: {
+          provider: STTProvider.DEEPGRAM, // ✅ correct pour le SDK
+        },
       });
       setSessionState(StreamingAvatarSessionState.CONNECTED);
     } catch (err) {
