@@ -1,6 +1,6 @@
 /**
- * 🎨 Chroma Key — suppression du vert Heygen + fond flottant naturel
- * Corrige les résidus verts (#0f3d0f) et garde un fond noir semi-transparent.
+ * 🎨 Chroma Key — suppression du vert Heygen + fond noir propre
+ * Supprime le vert (#0f3d0f) et applique un fond noir stable (optionnellement semi-transparent).
  * Compatible avec le SDK Heygen Streaming Avatar.
  */
 
@@ -13,37 +13,38 @@ export function applyChromaKey(
     minSaturation?: number;
     threshold?: number;
     transparencyLevel?: number;
-    softness?: number; // flou des bords
+    softness?: number; // flou léger
     backgroundColor?: string;
   } = {}
 ): void {
   const {
-    minHue = 40, // étend la détection du vert clair au vert foncé
-    maxHue = 190,
-    minSaturation = 0.1,
+    minHue = 45, // spectre vert équilibré
+    maxHue = 185,
+    minSaturation = 0.12,
     threshold = 1.0,
-    transparencyLevel = 70, // 0–255 : plus haut = plus transparent
-    softness = 2,
-    backgroundColor = "rgba(0,0,0,0.35)", // voile noir semi-transparent
+    transparencyLevel = 0, // 0 = totalement transparent
+    softness = 1, // flou minimal pour éviter les bords durs
+    backgroundColor = "rgba(0,0,0,0.9)", // ✅ fond noir quasi opaque
   } = options;
 
   const ctx = targetCanvas.getContext("2d", {
     willReadFrequently: true,
     alpha: true,
   });
-  if (!ctx || sourceVideo.readyState < 2) return;
 
-  // ✅ empêche le traitement sur frame vide
+  if (!ctx || sourceVideo.readyState < 2) return;
   if (sourceVideo.videoWidth === 0 || sourceVideo.videoHeight === 0) return;
 
+  // Ajuste la taille du canvas à celle de la vidéo
   targetCanvas.width = sourceVideo.videoWidth;
   targetCanvas.height = sourceVideo.videoHeight;
 
+  // Dessine la frame
   ctx.drawImage(sourceVideo, 0, 0, targetCanvas.width, targetCanvas.height);
   const frame = ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
   const data = frame.data;
 
-  // suppression du vert
+  // Suppression du vert
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
@@ -73,22 +74,22 @@ export function applyChromaKey(
       g > r * threshold &&
       g > b * threshold;
 
-    // 💫 Pixels verts → transparents
+    // 💫 Pixels verts → transparents (supprimés)
     if (isGreen) data[i + 3] = transparencyLevel;
   }
 
   ctx.putImageData(frame, 0, 0);
 
-  // 💫 flou doux sur les bords
+  // 💫 Lissage léger pour transitions plus propres
   if (softness > 0) {
     ctx.filter = `blur(${softness}px)`;
     ctx.drawImage(targetCanvas, 0, 0);
     ctx.filter = "none";
   }
 
-  // 💫 ajoute un fond noir semi-transparent (visible sur fond violet)
+  // 💫 Fond noir fixe (aucun voile ni effet gris)
   ctx.globalCompositeOperation = "destination-over";
-  ctx.fillStyle = backgroundColor;
+  ctx.fillStyle = backgroundColor; // noir opaque ou semi-transparent
   ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
   ctx.globalCompositeOperation = "source-over";
 }
