@@ -12,12 +12,12 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useMemoizedFn, useUnmount } from "ahooks";
 
-import { AvatarVideo } from "./AvatarSession/AvatarVideo";
 import { useStreamingAvatarSession } from "./logic/useStreamingAvatarSession";
 import { useVoiceChat } from "./logic/useVoiceChat";
 import { StreamingAvatarProvider, StreamingAvatarSessionState } from "./logic";
 import { LoadingIcon } from "./Icons";
 import { Button } from "./Button";
+import { setupChromaKey } from "./chromaKey";
 
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
@@ -44,7 +44,10 @@ function InteractiveAvatar() {
   const [selectedLanguage, setSelectedLanguage] = useState("fr");
   const [showTextBox, setShowTextBox] = useState(false);
   const [textValue, setTextValue] = useState("");
+
   const mediaRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stopChromaRef = useRef<(() => void) | null>(null);
 
   const fetchAccessToken = async () => {
     const response = await fetch("/api/get-access-token", { method: "POST" });
@@ -65,29 +68,46 @@ function InteractiveAvatar() {
 
   useUnmount(() => {
     stopAvatar();
+    if (stopChromaRef.current) stopChromaRef.current();
   });
 
   useEffect(() => {
     if (stream && mediaRef.current) {
-      mediaRef.current.srcObject = stream;
-      mediaRef.current.onloadedmetadata = () => mediaRef.current!.play();
+      const video = mediaRef.current;
+      const canvas = canvasRef.current!;
+      video.srcObject = stream;
+      video.onloadedmetadata = () => {
+        video.play();
+        if (stopChromaRef.current) stopChromaRef.current();
+        stopChromaRef.current = setupChromaKey(video, canvas);
+      };
     }
   }, [stream]);
 
+  // ✅ Envoi du texte vers l’avatar
   const sendText = useMemoizedFn(async () => {
     const msg = textValue.trim();
     if (!msg) return;
     try {
-      const anyRef = (avatarRef.current as any) || {};
-      if (typeof anyRef.sendTextMessage === "function") {
-        await anyRef.sendTextMessage(msg);
-      } else if (typeof anyRef.inputText === "function") {
-        await anyRef.inputText(msg);
-      } else if (typeof anyRef.send === "function") {
-        await anyRef.send({ type: "text", text: msg });
-      } else {
-        console.warn("Aucune API texte disponible sur ce SDK (UI only).");
+      const ref: any = avatarRef.current;
+      if (!ref) {
+        console.warn("Avatar non prêt pour recevoir du texte");
+        return;
       }
+
+      console.log("🧠 Envoi du texte à l’avatar :", msg);
+
+      // Test successif des différentes méthodes selon SDK
+      if (typeof ref.sendMessage === "function") {
+        await ref.sendMessage({ type: "text", text: msg });
+      } else if (typeof ref.inputText === "function") {
+        await ref.inputText(msg);
+      } else if (typeof ref.sendTextMessage === "function") {
+        await ref.sendTextMessage(msg);
+      } else {
+        console.warn("❌ Aucune méthode compatible trouvée sur avatarRef");
+      }
+
       setTextValue("");
     } catch (e) {
       console.error("Erreur envoi texte :", e);
@@ -95,26 +115,46 @@ function InteractiveAvatar() {
   });
 
   return (
-    <div className="flex items-center justify-center w-full h-screen bg-transparent overflow-hidden">
+    <div
+      className="flex items-center justify-center w-full bg-transparent overflow-hidden"
+      style={{
+        height: "580px", // ✅ hauteur adaptée à l’iframe
+      }}
+    >
       <div
         className="flex flex-col items-stretch justify-between rounded-xl overflow-hidden shadow-2xl"
         style={{
           width: "100%",
-          maxWidth: "520px",
+          maxWidth: "480px", // ✅ taille fixe alignée au cadre violet
           background: "rgba(0,0,0,0.85)",
           border: "1px solid #480559",
         }}
       >
-        {/* --- Zone principale --- */}
+        {/* Zone principale */}
         <div className="relative w-full" style={{ height: 480 }}>
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
-            <AvatarVideo ref={mediaRef} stream={stream!} />
+            <>
+              {/* ✅ Canvas avec fond transparent réel */}
+              <canvas
+                ref={canvasRef}
+                className="absolute inset-0 w-full h-full object-contain rounded-xl"
+                style={{ background: "transparent" }}
+              />
+              {/* ✅ Vidéo cachée servant au traitement */}
+              <video
+                ref={mediaRef}
+                autoPlay
+                playsInline
+                muted
+                className="hidden"
+              />
+            </>
           ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
             <div className="flex items-center justify-center w-full h-full">
               <LoadingIcon />
             </div>
           ) : (
-            // ✅ Écran d’accueil
+            // Écran d’accueil
             <div className="flex flex-col w-full h-full items-center justify-between p-4">
               <div className="flex-1 flex items-center justify-center w-full">
                 <img
@@ -122,14 +162,10 @@ function InteractiveAvatar() {
                   alt="Aperçu avatar"
                   className="w-full h-full object-contain rounded-xl"
                   draggable={false}
-                  style={{
-                    background: "transparent",
-                    objectPosition: "center",
-                  }}
                 />
               </div>
 
-              {/* ✅ Boutons en bas */}
+              {/* Boutons en bas */}
               <div className="w-full flex items-center justify-center gap-2 mt-3">
                 <div className="relative">
                   <select
@@ -167,7 +203,7 @@ function InteractiveAvatar() {
           )}
         </div>
 
-        {/* --- Barre commandes active --- */}
+        {/* Barre de commandes */}
         {sessionState === StreamingAvatarSessionState.CONNECTED && (
           <div
             className="flex flex-col gap-3 p-3 w-full"
