@@ -55,7 +55,7 @@ function InteractiveAvatar() {
     return response.text();
   };
 
-  // === Session ===
+  // === Démarrage session ===
   const startSession = useMemoizedFn(async () => {
     try {
       const token = await fetchAccessToken();
@@ -68,12 +68,13 @@ function InteractiveAvatar() {
     }
   });
 
+  // === Nettoyage ===
   useUnmount(() => {
     stopAvatar();
     if (stopChromaRef.current) stopChromaRef.current();
   });
 
-  // === Video + Chroma ===
+  // === Gestion du flux vidéo + Chroma Key ===
   useEffect(() => {
     if (stream && videoRef.current) {
       const video = videoRef.current;
@@ -87,7 +88,7 @@ function InteractiveAvatar() {
     }
   }, [stream]);
 
-  // === Texte ===
+  // === Envoi texte vers avatar (universel) ===
   const sendText = useMemoizedFn(async () => {
     const msg = textValue.trim();
     if (!msg) return;
@@ -99,12 +100,18 @@ function InteractiveAvatar() {
       }
 
       const ref: any = avatarRef.current;
-      if (!ref) return console.warn("⚠️ Avatar non prêt");
+      if (!ref) return console.warn("⚠️ Avatar non prêt à recevoir du texte");
+
+      console.log("💬 Envoi du texte :", msg);
 
       if (typeof ref.sendTextMessage === "function") await ref.sendTextMessage(msg);
       else if (typeof ref.inputText === "function") await ref.inputText(msg);
       else if (typeof ref.sendMessage === "function")
         await ref.sendMessage({ type: "text", text: msg });
+      else if (typeof ref.send === "function")
+        await ref.send({ type: "text", text: msg });
+      else if (typeof ref.message === "function") await ref.message(msg);
+      else console.warn("❌ Aucune méthode compatible trouvée sur avatarRef");
 
       setTextValue("");
     } catch (e) {
@@ -112,15 +119,14 @@ function InteractiveAvatar() {
     }
   });
 
-  // === UI ===
+  // === Interface ===
   return (
     <div
       id="embed-root"
       style={{
         width: 360,
-        height: "auto",
+        aspectRatio: "3/4",
         margin: "0 auto",
-        padding: 0,
         background: "transparent",
         overflow: "hidden",
         display: "flex",
@@ -133,7 +139,7 @@ function InteractiveAvatar() {
         style={{
           width: "340px",
           border: "1px solid #6d2a8f",
-          background: "rgba(0,0,0,0.35)", // ✅ fond noir semi-transparent
+          background: "rgba(0,0,0,0.35)", // ✅ léger voile semi-transparent
           borderRadius: "10px",
         }}
       >
@@ -142,7 +148,7 @@ function InteractiveAvatar() {
           className="relative"
           style={{
             width: "100%",
-            height: 380, // ✅ plus petit
+            height: 400,
             background: "transparent",
             display: "flex",
             justifyContent: "center",
@@ -163,18 +169,16 @@ function InteractiveAvatar() {
               <LoadingIcon />
             </div>
           ) : (
-            // Image d’attente
             <img
               src="/katya_preview.jpg"
               alt="Aperçu avatar"
               className="w-full h-full object-cover"
               draggable={false}
-              style={{ borderRadius: "0px" }}
             />
           )}
         </div>
 
-        {/* === Barre de commandes collée === */}
+        {/* === Barre de commandes === */}
         <div
           className="flex flex-col gap-2 p-2 w-full"
           style={{
@@ -248,12 +252,15 @@ function InteractiveAvatar() {
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="px-2 pr-6 py-1 text-xs text-white rounded-full bg-neutral-800 border border-neutral-700 appearance-none"
-                  style={{ width: 120 }}
+                  className="px-3 pr-7 py-1.5 text-xs text-white rounded-full bg-neutral-800 border border-neutral-700 appearance-none"
+                  style={{ width: 150 }}
                 >
-                  <option value="fr">🇫🇷 FR</option>
-                  <option value="en">🇬🇧 EN</option>
-                  <option value="es">🇪🇸 ES</option>
+                  <option value="fr">🇫🇷 Français</option>
+                  <option value="en">🇬🇧 Anglais</option>
+                  <option value="es">🇪🇸 Espagnol</option>
+                  <option value="de">🇩🇪 Allemand</option>
+                  <option value="it">🇮🇹 Italien</option>
+                  <option value="pt">🇵🇹 Portugais</option>
                 </select>
                 <span
                   className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-neutral-300"
