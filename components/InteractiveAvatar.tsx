@@ -45,17 +45,15 @@ function InteractiveAvatar() {
   const [showTextBox, setShowTextBox] = useState(false);
   const [textValue, setTextValue] = useState("");
 
-  const mediaRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stopChromaRef = useRef<(() => void) | null>(null);
 
-  // --- Auth Token Heygen ---
   const fetchAccessToken = async () => {
     const response = await fetch("/api/get-access-token", { method: "POST" });
     return response.text();
   };
 
-  // --- Démarrage session ---
   const startSession = useMemoizedFn(async () => {
     try {
       const token = await fetchAccessToken();
@@ -68,16 +66,14 @@ function InteractiveAvatar() {
     }
   });
 
-  // --- Nettoyage ---
   useUnmount(() => {
     stopAvatar();
     if (stopChromaRef.current) stopChromaRef.current();
   });
 
-  // --- Gestion du flux vidéo + chroma key ---
   useEffect(() => {
-    if (stream && mediaRef.current) {
-      const video = mediaRef.current;
+    if (stream && videoRef.current) {
+      const video = videoRef.current;
       const canvas = canvasRef.current!;
       video.srcObject = stream;
       video.onloadedmetadata = () => {
@@ -88,13 +84,11 @@ function InteractiveAvatar() {
     }
   }, [stream]);
 
-  // --- Envoi texte vers avatar ---
   const sendText = useMemoizedFn(async () => {
     const msg = textValue.trim();
     if (!msg) return;
 
     try {
-      // Stopper la voix avant texte pour éviter conflit
       if (isVoiceChatActive) {
         await stopVoiceChat();
         await new Promise((r) => setTimeout(r, 200));
@@ -106,9 +100,6 @@ function InteractiveAvatar() {
         return;
       }
 
-      console.log("💬 Envoi du texte à l’avatar :", msg);
-
-      // Compatibilité multi-version du SDK
       if (typeof ref.sendMessage === "function") {
         await ref.sendMessage({ type: "text", text: msg });
       } else if (typeof ref.inputText === "function") {
@@ -117,8 +108,6 @@ function InteractiveAvatar() {
         await ref.sendTextMessage(msg);
       } else if (typeof ref.send === "function") {
         await ref.send({ type: "input_text", text: msg });
-      } else {
-        console.warn("❌ Aucune méthode compatible trouvée sur avatarRef");
       }
 
       setTextValue("");
@@ -131,156 +120,167 @@ function InteractiveAvatar() {
     <div
       id="embed-root"
       style={{
-        width: 480,
-        height: 600,
-        margin: 0,
+        width: 420,
+        height: "auto",
+        margin: "0 auto",
         padding: 0,
         background: "transparent",
         overflow: "hidden",
         display: "flex",
-        alignItems: "center",
         justifyContent: "center",
+        alignItems: "center",
       }}
     >
       <div
-        className="flex flex-col items-stretch justify-between rounded-xl overflow-hidden shadow-2xl"
+        className="flex flex-col items-center justify-start rounded-xl overflow-hidden shadow-2xl"
         style={{
-          width: "100%",
-          height: "100%",
-          border: "1px solid #480559",
-          background: "rgba(0,0,0,0.85)",
+          width: "400px",
+          border: "1px solid #6d2a8f",
+          background: "rgba(0,0,0,0)", // 100% transparent (fond de ton site visible)
           borderRadius: "12px",
         }}
       >
-        {/* === Zone principale === */}
-        <div className="relative w-full" style={{ height: 480 }}>
+        {/* === Zone vidéo === */}
+        <div
+          className="relative"
+          style={{
+            width: "100%",
+            height: 460,
+            background: "transparent",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
             <>
               <canvas
                 ref={canvasRef}
-                className="absolute inset-0 w-full h-full object-contain rounded-xl"
+                className="absolute inset-0 w-full h-full object-cover"
                 style={{ background: "transparent" }}
               />
-              <video ref={mediaRef} autoPlay playsInline muted className="hidden" />
+              <video ref={videoRef} autoPlay playsInline muted className="hidden" />
             </>
           ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
             <div className="flex items-center justify-center w-full h-full">
               <LoadingIcon />
             </div>
           ) : (
-            // === Écran d’accueil ===
-            <div className="flex flex-col w-full h-full items-center justify-between p-4">
-              <div className="flex-1 flex items-center justify-center w-full">
-                <img
-                  src="/katya_preview.jpg"
-                  alt="Aperçu avatar"
-                  className="w-full h-full object-contain rounded-xl"
-                  draggable={false}
-                />
-              </div>
-
-              <div className="w-full flex items-center justify-center gap-2 mt-3">
-                <div className="relative">
-                  <select
-                    value={selectedLanguage}
-                    onChange={(e) => setSelectedLanguage(e.target.value)}
-                    className="px-3 pr-7 py-2 text-sm text-white rounded-full bg-neutral-800 border border-neutral-700 appearance-none"
-                    style={{ width: 160 }}
-                  >
-                    <option value="fr">🇫🇷 Français</option>
-                    <option value="en">🇬🇧 Anglais</option>
-                    <option value="es">🇪🇸 Espagnol</option>
-                    <option value="de">🇩🇪 Allemand</option>
-                    <option value="it">🇮🇹 Italien</option>
-                  </select>
-                  <span
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300"
-                    style={{ fontSize: 10 }}
-                  >
-                    ▼
-                  </span>
-                </div>
-
-                <button
-                  onClick={() => startSession()}
-                  className="px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#5a0771]"
-                  style={{
-                    backgroundColor: "#480559",
-                    border: "1px solid #480559",
-                  }}
-                >
-                  Lancer le chat
-                </button>
-              </div>
-            </div>
+            // Image d’attente
+            <img
+              src="/katya_preview.jpg"
+              alt="Aperçu avatar"
+              className="w-full h-full object-cover"
+              draggable={false}
+              style={{ borderRadius: "0px" }}
+            />
           )}
         </div>
 
-        {/* === Barre commandes === */}
-        {sessionState === StreamingAvatarSessionState.CONNECTED && (
-          <div
-            className="flex flex-col gap-3 p-3 w-full"
-            style={{ background: "rgba(0,0,0,0.6)" }}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                className="text-white text-sm font-medium px-4 py-2 rounded-full"
-                style={{
-                  backgroundColor: "transparent",
-                  border: "1px solid #480559",
-                }}
-                onClick={() =>
-                  isVoiceChatActive ? stopVoiceChat() : startVoiceChat()
-                }
-              >
-                {isVoiceChatActive ? "Couper micro" : "Activer micro"}
-              </Button>
-
-              <Button
-                className="text-white text-sm font-medium px-4 py-2 rounded-full"
-                style={{
-                  backgroundColor: "transparent",
-                  border: "1px solid #480559",
-                }}
-                onClick={() => setShowTextBox((v) => !v)}
-              >
-                Saisie texte
-              </Button>
-
-              <Button
-                className="text-white text-sm font-medium px-4 py-2 rounded-full"
-                style={{
-                  backgroundColor: "transparent",
-                  border: "1px solid #ff4444",
-                }}
-                onClick={() => stopAvatar()}
-              >
-                Fin
-              </Button>
-            </div>
-
-            {showTextBox && (
-              <div className="flex items-center gap-2">
-                <input
-                  value={textValue}
-                  onChange={(e) => setTextValue(e.target.value)}
-                  placeholder="Écrivez votre message…"
-                  className="flex-1 px-3 py-2 text-sm rounded-md bg-black/50 border border-neutral-700 text-white"
-                />
+        {/* === Barre de commandes collée sous la vidéo === */}
+        <div
+          className="flex flex-col gap-2 p-3 w-full"
+          style={{
+            background: "rgba(0,0,0,0.4)",
+            borderTop: "1px solid #6d2a8f",
+          }}
+        >
+          {sessionState === StreamingAvatarSessionState.CONNECTED ? (
+            <>
+              <div className="flex items-center justify-center gap-2">
                 <Button
-                  className="text-white text-sm font-medium px-4 py-2 rounded-md"
+                  className="text-white text-sm font-medium px-4 py-2 rounded-full"
                   style={{
-                    backgroundColor: "#480559",
-                    border: "1px solid #480559",
+                    backgroundColor: "transparent",
+                    border: "1px solid #6d2a8f",
                   }}
-                  onClick={sendText}
+                  onClick={() =>
+                    isVoiceChatActive ? stopVoiceChat() : startVoiceChat()
+                  }
                 >
-                  Envoyer
+                  {isVoiceChatActive ? "Couper micro" : "Activer micro"}
+                </Button>
+
+                <Button
+                  className="text-white text-sm font-medium px-4 py-2 rounded-full"
+                  style={{
+                    backgroundColor: "transparent",
+                    border: "1px solid #6d2a8f",
+                  }}
+                  onClick={() => setShowTextBox((v) => !v)}
+                >
+                  Saisie texte
+                </Button>
+
+                <Button
+                  className="text-white text-sm font-medium px-4 py-2 rounded-full"
+                  style={{
+                    backgroundColor: "transparent",
+                    border: "1px solid #ff4444",
+                  }}
+                  onClick={() => stopAvatar()}
+                >
+                  Fin
                 </Button>
               </div>
-            )}
-          </div>
-        )}
+
+              {showTextBox && (
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    value={textValue}
+                    onChange={(e) => setTextValue(e.target.value)}
+                    placeholder="Écrivez votre message…"
+                    className="flex-1 px-3 py-2 text-sm rounded-md bg-black/50 border border-neutral-700 text-white"
+                  />
+                  <Button
+                    className="text-white text-sm font-medium px-4 py-2 rounded-md"
+                    style={{
+                      backgroundColor: "#6d2a8f",
+                      border: "1px solid #6d2a8f",
+                    }}
+                    onClick={sendText}
+                  >
+                    Envoyer
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="w-full flex items-center justify-center gap-2">
+              <div className="relative">
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="px-3 pr-7 py-2 text-sm text-white rounded-full bg-neutral-800 border border-neutral-700 appearance-none"
+                  style={{ width: 160 }}
+                >
+                  <option value="fr">🇫🇷 Français</option>
+                  <option value="en">🇬🇧 Anglais</option>
+                  <option value="es">🇪🇸 Espagnol</option>
+                  <option value="de">🇩🇪 Allemand</option>
+                  <option value="it">🇮🇹 Italien</option>
+                </select>
+                <span
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300"
+                  style={{ fontSize: 10 }}
+                >
+                  ▼
+                </span>
+              </div>
+
+              <button
+                onClick={() => startSession()}
+                className="px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#5a0771]"
+                style={{
+                  backgroundColor: "#6d2a8f",
+                  border: "1px solid #6d2a8f",
+                }}
+              >
+                Lancer le chat
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
