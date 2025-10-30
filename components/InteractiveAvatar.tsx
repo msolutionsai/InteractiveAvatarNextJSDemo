@@ -63,28 +63,35 @@ function InteractiveAvatar() {
     }
   };
 
-  // === Démarrage session (version stable SDK) ===
+  // === ✅ Correction : Démarrage session (avec avatar.connect) ===
   const startSession = useMemoizedFn(async () => {
     try {
       setIsLoading(true);
       console.log("🚀 Démarrage de la session avatar...");
+
       const token = await fetchAccessToken();
-      if (!token) return;
+      if (!token) {
+        console.error("❌ Aucun token reçu, arrêt du lancement.");
+        setIsLoading(false);
+        return;
+      }
 
       const avatar = initAvatar(token);
 
-      // Événement quand le flux est prêt
+      // ✅ Nouvelle ligne obligatoire pour établir la connexion WebRTC
+      await avatar.connect();
+      console.log("✅ Avatar connecté au serveur WebRTC");
+
       avatar.on("stream_ready", async () => {
         console.log("📡 Flux prêt → démarrage avatar");
         await startAvatar({ ...config, language: selectedLanguage });
         await startVoiceChat();
+        setIsLoading(false);
       });
 
       avatar.on("transcript", (t: any) => console.log("🎙️ Transcription:", t));
       avatar.on("agent_response", (r: any) => console.log("🤖 Réponse agent:", r));
       avatar.on("error", (err: any) => console.error("⚠️ Erreur Streaming:", err));
-
-      setIsLoading(false);
     } catch (err) {
       console.error("❌ Erreur au démarrage avatar:", err);
       setIsLoading(false);
@@ -140,11 +147,12 @@ function InteractiveAvatar() {
     <div
       id="embed-root"
       style={{
-        width: "100%",
-        maxWidth: 340,
+        width: "480px",
+        height: "640px",
+        maxWidth: "100%",
         margin: "0 auto",
         background: "transparent",
-        overflow: "hidden",
+        overflow: "hidden", // ✅ conserve la découpe du cadre
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
