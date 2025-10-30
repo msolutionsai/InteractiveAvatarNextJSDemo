@@ -49,11 +49,13 @@ function InteractiveAvatar() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stopChromaRef = useRef<(() => void) | null>(null);
 
+  // === Auth ===
   const fetchAccessToken = async () => {
     const response = await fetch("/api/get-access-token", { method: "POST" });
     return response.text();
   };
 
+  // === Session ===
   const startSession = useMemoizedFn(async () => {
     try {
       const token = await fetchAccessToken();
@@ -71,6 +73,7 @@ function InteractiveAvatar() {
     if (stopChromaRef.current) stopChromaRef.current();
   });
 
+  // === Video + Chroma ===
   useEffect(() => {
     if (stream && videoRef.current) {
       const video = videoRef.current;
@@ -84,6 +87,7 @@ function InteractiveAvatar() {
     }
   }, [stream]);
 
+  // === Texte ===
   const sendText = useMemoizedFn(async () => {
     const msg = textValue.trim();
     if (!msg) return;
@@ -95,20 +99,12 @@ function InteractiveAvatar() {
       }
 
       const ref: any = avatarRef.current;
-      if (!ref) {
-        console.warn("⚠️ Avatar non prêt pour recevoir du texte");
-        return;
-      }
+      if (!ref) return console.warn("⚠️ Avatar non prêt");
 
-      if (typeof ref.sendMessage === "function") {
+      if (typeof ref.sendTextMessage === "function") await ref.sendTextMessage(msg);
+      else if (typeof ref.inputText === "function") await ref.inputText(msg);
+      else if (typeof ref.sendMessage === "function")
         await ref.sendMessage({ type: "text", text: msg });
-      } else if (typeof ref.inputText === "function") {
-        await ref.inputText(msg);
-      } else if (typeof ref.sendTextMessage === "function") {
-        await ref.sendTextMessage(msg);
-      } else if (typeof ref.send === "function") {
-        await ref.send({ type: "input_text", text: msg });
-      }
 
       setTextValue("");
     } catch (e) {
@@ -116,11 +112,12 @@ function InteractiveAvatar() {
     }
   });
 
+  // === UI ===
   return (
     <div
       id="embed-root"
       style={{
-        width: 420,
+        width: 360,
         height: "auto",
         margin: "0 auto",
         padding: 0,
@@ -132,12 +129,12 @@ function InteractiveAvatar() {
       }}
     >
       <div
-        className="flex flex-col items-center justify-start rounded-xl overflow-hidden shadow-2xl"
+        className="flex flex-col items-center justify-start rounded-xl overflow-hidden shadow-xl"
         style={{
-          width: "400px",
+          width: "340px",
           border: "1px solid #6d2a8f",
-          background: "rgba(0,0,0,0)", // 100% transparent (fond de ton site visible)
-          borderRadius: "12px",
+          background: "rgba(0,0,0,0.35)", // ✅ fond noir semi-transparent
+          borderRadius: "10px",
         }}
       >
         {/* === Zone vidéo === */}
@@ -145,7 +142,7 @@ function InteractiveAvatar() {
           className="relative"
           style={{
             width: "100%",
-            height: 460,
+            height: 380, // ✅ plus petit
             background: "transparent",
             display: "flex",
             justifyContent: "center",
@@ -177,11 +174,11 @@ function InteractiveAvatar() {
           )}
         </div>
 
-        {/* === Barre de commandes collée sous la vidéo === */}
+        {/* === Barre de commandes collée === */}
         <div
-          className="flex flex-col gap-2 p-3 w-full"
+          className="flex flex-col gap-2 p-2 w-full"
           style={{
-            background: "rgba(0,0,0,0.4)",
+            background: "rgba(0,0,0,0.45)",
             borderTop: "1px solid #6d2a8f",
           }}
         >
@@ -189,7 +186,7 @@ function InteractiveAvatar() {
             <>
               <div className="flex items-center justify-center gap-2">
                 <Button
-                  className="text-white text-sm font-medium px-4 py-2 rounded-full"
+                  className="text-white text-xs font-medium px-3 py-1.5 rounded-full"
                   style={{
                     backgroundColor: "transparent",
                     border: "1px solid #6d2a8f",
@@ -198,22 +195,22 @@ function InteractiveAvatar() {
                     isVoiceChatActive ? stopVoiceChat() : startVoiceChat()
                   }
                 >
-                  {isVoiceChatActive ? "Couper micro" : "Activer micro"}
+                  {isVoiceChatActive ? "Couper micro" : "Micro"}
                 </Button>
 
                 <Button
-                  className="text-white text-sm font-medium px-4 py-2 rounded-full"
+                  className="text-white text-xs font-medium px-3 py-1.5 rounded-full"
                   style={{
                     backgroundColor: "transparent",
                     border: "1px solid #6d2a8f",
                   }}
                   onClick={() => setShowTextBox((v) => !v)}
                 >
-                  Saisie texte
+                  Texte
                 </Button>
 
                 <Button
-                  className="text-white text-sm font-medium px-4 py-2 rounded-full"
+                  className="text-white text-xs font-medium px-3 py-1.5 rounded-full"
                   style={{
                     backgroundColor: "transparent",
                     border: "1px solid #ff4444",
@@ -225,15 +222,15 @@ function InteractiveAvatar() {
               </div>
 
               {showTextBox && (
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mt-1">
                   <input
                     value={textValue}
                     onChange={(e) => setTextValue(e.target.value)}
-                    placeholder="Écrivez votre message…"
-                    className="flex-1 px-3 py-2 text-sm rounded-md bg-black/50 border border-neutral-700 text-white"
+                    placeholder="Écrivez…"
+                    className="flex-1 px-2 py-1 text-xs rounded-md bg-black/40 border border-neutral-700 text-white"
                   />
                   <Button
-                    className="text-white text-sm font-medium px-4 py-2 rounded-md"
+                    className="text-white text-xs font-medium px-3 py-1.5 rounded-md"
                     style={{
                       backgroundColor: "#6d2a8f",
                       border: "1px solid #6d2a8f",
@@ -251,18 +248,16 @@ function InteractiveAvatar() {
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="px-3 pr-7 py-2 text-sm text-white rounded-full bg-neutral-800 border border-neutral-700 appearance-none"
-                  style={{ width: 160 }}
+                  className="px-2 pr-6 py-1 text-xs text-white rounded-full bg-neutral-800 border border-neutral-700 appearance-none"
+                  style={{ width: 120 }}
                 >
-                  <option value="fr">🇫🇷 Français</option>
-                  <option value="en">🇬🇧 Anglais</option>
-                  <option value="es">🇪🇸 Espagnol</option>
-                  <option value="de">🇩🇪 Allemand</option>
-                  <option value="it">🇮🇹 Italien</option>
+                  <option value="fr">🇫🇷 FR</option>
+                  <option value="en">🇬🇧 EN</option>
+                  <option value="es">🇪🇸 ES</option>
                 </select>
                 <span
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300"
-                  style={{ fontSize: 10 }}
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-neutral-300"
+                  style={{ fontSize: 9 }}
                 >
                   ▼
                 </span>
@@ -270,13 +265,13 @@ function InteractiveAvatar() {
 
               <button
                 onClick={() => startSession()}
-                className="px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#5a0771]"
+                className="px-3 py-1.5 text-xs font-semibold text-white rounded-full hover:bg-[#5a0771]"
                 style={{
                   backgroundColor: "#6d2a8f",
                   border: "1px solid #6d2a8f",
                 }}
               >
-                Lancer le chat
+                Lancer
               </button>
             </div>
           )}
