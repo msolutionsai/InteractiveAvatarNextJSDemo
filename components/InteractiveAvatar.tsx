@@ -124,8 +124,7 @@ function InteractiveAvatar() {
     <div
       id="embed-root"
       style={{
-        width: 360,
-        aspectRatio: "3/4",
+        width: 340,
         margin: "0 auto",
         background: "transparent",
         overflow: "hidden",
@@ -137,9 +136,9 @@ function InteractiveAvatar() {
       <div
         className="flex flex-col items-center justify-start rounded-xl overflow-hidden shadow-xl"
         style={{
-          width: "340px",
+          width: "320px",
           border: "1px solid #6d2a8f",
-          background: "rgba(0,0,0,0.35)", // ✅ léger voile semi-transparent
+          background: "rgba(0,0,0,0.9)", // ✅ fond noir quasi opaque
           borderRadius: "10px",
         }}
       >
@@ -148,8 +147,8 @@ function InteractiveAvatar() {
           className="relative"
           style={{
             width: "100%",
-            height: 400,
-            background: "transparent",
+            height: 320, // ✅ format plus carré
+            background: "black", // ✅ fond noir stable
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -160,7 +159,9 @@ function InteractiveAvatar() {
               <canvas
                 ref={canvasRef}
                 className="absolute inset-0 w-full h-full object-cover"
-                style={{ background: "transparent" }}
+                style={{
+                  background: "rgba(0,0,0,0.95)", // ✅ fond noir léger
+                }}
               />
               <video ref={videoRef} autoPlay playsInline muted className="hidden" />
             </>
@@ -174,6 +175,9 @@ function InteractiveAvatar() {
               alt="Aperçu avatar"
               className="w-full h-full object-cover"
               draggable={false}
+              style={{
+                background: "black",
+              }}
             />
           )}
         </div>
@@ -182,7 +186,7 @@ function InteractiveAvatar() {
         <div
           className="flex flex-col gap-2 p-2 w-full"
           style={{
-            background: "rgba(0,0,0,0.45)",
+            background: "rgba(0,0,0,0.9)", // fond noir légèrement transparent
             borderTop: "1px solid #6d2a8f",
           }}
         >
@@ -231,7 +235,7 @@ function InteractiveAvatar() {
                     value={textValue}
                     onChange={(e) => setTextValue(e.target.value)}
                     placeholder="Écrivez…"
-                    className="flex-1 px-2 py-1 text-xs rounded-md bg-black/40 border border-neutral-700 text-white"
+                    className="flex-1 px-2 py-1 text-xs rounded-md bg-black border border-neutral-700 text-white"
                   />
                   <Button
                     className="text-white text-xs font-medium px-3 py-1.5 rounded-md"
