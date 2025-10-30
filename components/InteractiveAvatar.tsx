@@ -2,7 +2,6 @@
 
 import {
   AvatarQuality,
-  StreamingEvents,
   VoiceChatTransport,
   VoiceEmotion,
   StartAvatarRequest,
@@ -19,7 +18,7 @@ import { LoadingIcon } from "./Icons";
 import { Button } from "./Button";
 import { setupChromaKey } from "./chromaKey";
 
-// ✅ Configuration principale : stable et compatible build
+// ✅ Configuration principale : stable et compatible
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
@@ -64,25 +63,22 @@ function InteractiveAvatar() {
       const token = await fetchAccessToken();
       const avatar = initAvatar(token);
 
-      avatar.on(StreamingEvents.STREAM_READY, async () => {
-        console.log("📡 STREAM_READY → Lancement avatar");
-        await startAvatar({
-          ...config,
-          language: selectedLanguage,
-        });
+      // ✅ Gestion des événements SDK récents
+      avatar.on("stream_ready", async () => {
+        console.log("📡 Stream prêt → démarrage avatar");
+        await startAvatar({ ...config, language: selectedLanguage });
         await startVoiceChat();
       });
 
-      // ✅ Gestion d’erreurs compatible SDK récent
       avatar.on("error", (err: any) =>
         console.error("⚠️ Erreur Streaming:", err)
       );
 
-      // ✅ Logs utiles
-      avatar.on(StreamingEvents.TRANSCRIPT, (t) =>
+      avatar.on("transcript", (t: any) =>
         console.log("🎙️ Transcription:", t)
       );
-      avatar.on(StreamingEvents.AGENT_RESPONSE, (r) =>
+
+      avatar.on("agent_response", (r: any) =>
         console.log("🤖 Réponse agent:", r)
       );
     } catch (err) {
