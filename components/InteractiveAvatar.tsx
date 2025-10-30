@@ -63,7 +63,7 @@ function InteractiveAvatar() {
     }
   };
 
-  // === ✅ Correction : Démarrage session (avec avatar.connect) ===
+  // === Démarrage session stable
   const startSession = useMemoizedFn(async () => {
     try {
       setIsLoading(true);
@@ -78,9 +78,8 @@ function InteractiveAvatar() {
 
       const avatar = initAvatar(token);
 
-      // ✅ Nouvelle ligne obligatoire pour établir la connexion WebRTC
-      await avatar.connect();
-      console.log("✅ Avatar connecté au serveur WebRTC");
+      // Connexion WebRTC
+      if (avatar.connect) await avatar.connect();
 
       avatar.on("stream_ready", async () => {
         console.log("📡 Flux prêt → démarrage avatar");
@@ -147,12 +146,12 @@ function InteractiveAvatar() {
     <div
       id="embed-root"
       style={{
-        width: "480px",
-        height: "640px",
-        maxWidth: "100%",
+        width: "100%", // ✅ prend la largeur totale
+        maxWidth: "480px", // ✅ limite le cadre (plus large qu’avant)
+        aspectRatio: "3 / 4", // ✅ garde la bonne proportion 480x640
         margin: "0 auto",
         background: "transparent",
-        overflow: "hidden", // ✅ conserve la découpe du cadre
+        overflow: "hidden", // ✅ conserve la découpe propre
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -172,7 +171,8 @@ function InteractiveAvatar() {
           className="relative"
           style={{
             width: "100%",
-            height: 320,
+            height: "100%",
+            minHeight: "320px",
             background: "black",
             display: "flex",
             justifyContent: "center",
