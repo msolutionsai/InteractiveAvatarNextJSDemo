@@ -63,7 +63,7 @@ function InteractiveAvatar() {
     }
   };
 
-  // === Démarrage session stable
+  // === Démarrage session stable (corrigé sans avatar.connect)
   const startSession = useMemoizedFn(async () => {
     try {
       setIsLoading(true);
@@ -77,7 +77,7 @@ function InteractiveAvatar() {
       }
 
       const avatar = initAvatar(token);
-      if (avatar.connect) await avatar.connect();
+      console.log("✅ Avatar initialisé");
 
       avatar.on("stream_ready", async () => {
         console.log("📡 Flux prêt → démarrage avatar");
@@ -316,6 +316,7 @@ function InteractiveAvatar() {
           #embed-root {
             max-width: 90vw;
             aspect-ratio: 3 / 4;
+            transition: all 0.4s ease;
           }
         }
       `}</style>
