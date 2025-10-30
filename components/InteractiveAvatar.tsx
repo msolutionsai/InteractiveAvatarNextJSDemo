@@ -7,6 +7,7 @@ import {
   StartAvatarRequest,
   STTProvider,
   ElevenLabsModel,
+  StreamingEvents,
 } from "@heygen/streaming-avatar";
 import { useEffect, useRef, useState } from "react";
 import { useMemoizedFn, useUnmount } from "ahooks";
@@ -18,7 +19,7 @@ import { LoadingIcon } from "./Icons";
 import { Button } from "./Button";
 import { setupChromaKey } from "./chromaKey";
 
-// ✅ Configuration principale stable
+// ✅ Configuration stable pour SDK 2025 compatible Vercel
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
@@ -63,7 +64,7 @@ function InteractiveAvatar() {
     }
   };
 
-  // === Démarrage session ===
+  // === Démarrage session (compatible SDK Heygen stable) ===
   const startSession = useMemoizedFn(async () => {
     try {
       setIsLoading(true);
@@ -73,20 +74,23 @@ function InteractiveAvatar() {
 
       const avatar = initAvatar(token);
 
-      // ✅ Nouvelle séquence Heygen
-      await avatar.connect();
-      await avatar.start(); // ⬅️ Démarrage manuel du flux vidéo/audio
-
-      avatar.on("connected", () => console.log("🟢 Avatar connecté"));
-      avatar.on("stream_ready", async () => {
-        console.log("📡 Flux prêt → lancement avatar");
+      avatar.on(StreamingEvents.STREAM_READY, async () => {
+        console.log("📡 Flux prêt → démarrage avatar");
         await startAvatar({ ...config, language: selectedLanguage });
         await startVoiceChat();
       });
 
-      avatar.on("transcript", (t: any) => console.log("🎙️ Transcription:", t));
-      avatar.on("agent_response", (r: any) => console.log("🤖 Réponse agent:", r));
-      avatar.on("error", (err: any) => console.error("⚠️ Erreur Streaming:", err));
+      avatar.on(StreamingEvents.TRANSCRIPT, (t) =>
+        console.log("🎙️ Transcription:", t)
+      );
+
+      avatar.on(StreamingEvents.AGENT_RESPONSE, (r) =>
+        console.log("🤖 Réponse agent:", r)
+      );
+
+      avatar.on(StreamingEvents.ERROR, (err) =>
+        console.error("⚠️ Erreur Streaming:", err)
+      );
 
       setIsLoading(false);
     } catch (err) {
@@ -132,8 +136,6 @@ function InteractiveAvatar() {
       else if (typeof ref.inputText === "function") await ref.inputText(msg);
       else if (typeof ref.sendMessage === "function")
         await ref.sendMessage({ type: "text", text: msg });
-      else if (typeof ref.send === "function")
-        await ref.send({ type: "text", text: msg });
 
       setTextValue("");
     } catch (e) {
