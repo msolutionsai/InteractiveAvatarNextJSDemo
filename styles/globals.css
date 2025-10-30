@@ -10,20 +10,42 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh; /* ✅ conserve le bon cadrage vertical */
-  width: 100vw; /* ✅ corrige le problème de largeur dans l'iframe */
-  overflow-x: hidden; /* ✅ évite les débordements latéraux */
-  overflow-y: hidden; /* ✅ évite les barres de scroll verticales */
+  height: 100vh; /* ✅ conserve le cadrage vertical */
+  width: 100vw; /* ✅ pleine largeur */
+  overflow: hidden; /* ✅ empêche tout débordement */
+  box-sizing: border-box;
 }
 
-/* === Liste par défaut === */
-li {
-  list-style-type: square;
-  margin-left: 30px;
-  padding: 2px;
+/* === Suppression des artefacts visuels === */
+html, body, iframe, video, canvas {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
-/* === Option responsive pour petits écrans === */
+/* === Conteneur principal === */
+#embed-root {
+  width: 100%;
+  max-width: 520px; /* ✅ largeur plus équilibrée (évite le troncage) */
+  aspect-ratio: 3 / 4;
+  background: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* === Responsive (mobile & tablettes) === */
+@media (max-width: 1024px) {
+  #embed-root {
+    max-width: 90vw;
+    height: auto;
+  }
+}
+
 @media (max-width: 768px) {
   body {
     flex-direction: column;
@@ -31,4 +53,26 @@ li {
     min-height: 100vh;
     padding: 10px;
   }
+
+  #embed-root {
+    max-width: 95vw;
+    aspect-ratio: 3 / 4;
+  }
+}
+
+/* === Correction du centrage vertical dans l’iframe === */
+html, body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: transparent !important;
+  overflow: hidden;
+}
+
+/* === Suppression complète du cadre Hostinger === */
+div:has(iframe),
+div:has(script) {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
