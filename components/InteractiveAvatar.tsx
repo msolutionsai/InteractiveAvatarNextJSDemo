@@ -19,7 +19,7 @@ import { LoadingIcon } from "./Icons";
 import { Button } from "./Button";
 import { setupChromaKey } from "./chromaKey";
 
-// ✅ Configuration principale
+// ✅ Configuration principale : stable et compatible build
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
@@ -33,7 +33,7 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
   },
   language: "fr",
   voiceChatTransport: VoiceChatTransport.WEBSOCKET,
-  sttSettings: { provider: STTProvider.DEEPGRAM }, // ✅ sans language
+  sttSettings: { provider: STTProvider.DEEPGRAM },
 };
 
 function InteractiveAvatar() {
@@ -68,14 +68,17 @@ function InteractiveAvatar() {
         console.log("📡 STREAM_READY → Lancement avatar");
         await startAvatar({
           ...config,
-          language: selectedLanguage, // ✅ langue définie ici
+          language: selectedLanguage,
         });
         await startVoiceChat();
       });
 
-      avatar.on(StreamingEvents.ERROR, (err) =>
+      // ✅ Gestion d’erreurs compatible SDK récent
+      avatar.on("error", (err: any) =>
         console.error("⚠️ Erreur Streaming:", err)
       );
+
+      // ✅ Logs utiles
       avatar.on(StreamingEvents.TRANSCRIPT, (t) =>
         console.log("🎙️ Transcription:", t)
       );
@@ -100,6 +103,7 @@ function InteractiveAvatar() {
       const canvas = canvasRef.current!;
       video.srcObject = stream;
       video.onloadedmetadata = () => {
+        if (video.videoWidth === 0 || video.videoHeight === 0) return; // ✅ sécurité
         video.play().catch(() => {});
         if (stopChromaRef.current) stopChromaRef.current();
         stopChromaRef.current = setupChromaKey(video, canvas);
