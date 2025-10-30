@@ -19,7 +19,7 @@ import { LoadingIcon } from "./Icons";
 import { Button } from "./Button";
 import { setupChromaKey } from "./chromaKey";
 
-// ✅ Configuration de base
+// ✅ Configuration principale
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
@@ -33,10 +33,7 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
   },
   language: "fr",
   voiceChatTransport: VoiceChatTransport.WEBSOCKET,
-  sttSettings: {
-    provider: STTProvider.DEEPGRAM,
-    language: "fr",
-  },
+  sttSettings: { provider: STTProvider.DEEPGRAM }, // ✅ sans language
 };
 
 function InteractiveAvatar() {
@@ -67,16 +64,11 @@ function InteractiveAvatar() {
       const token = await fetchAccessToken();
       const avatar = initAvatar(token);
 
-      // ✅ Ajout des événements de diagnostic
       avatar.on(StreamingEvents.STREAM_READY, async () => {
         console.log("📡 STREAM_READY → Lancement avatar");
         await startAvatar({
           ...config,
-          language: selectedLanguage,
-          sttSettings: {
-            provider: STTProvider.DEEPGRAM,
-            language: selectedLanguage,
-          },
+          language: selectedLanguage, // ✅ langue définie ici
         });
         await startVoiceChat();
       });
@@ -84,11 +76,9 @@ function InteractiveAvatar() {
       avatar.on(StreamingEvents.ERROR, (err) =>
         console.error("⚠️ Erreur Streaming:", err)
       );
-
       avatar.on(StreamingEvents.TRANSCRIPT, (t) =>
         console.log("🎙️ Transcription:", t)
       );
-
       avatar.on(StreamingEvents.AGENT_RESPONSE, (r) =>
         console.log("🤖 Réponse agent:", r)
       );
@@ -103,7 +93,7 @@ function InteractiveAvatar() {
     if (stopChromaRef.current) stopChromaRef.current();
   });
 
-  // === Flux vidéo + chroma ===
+  // === Gestion du flux vidéo + Chroma Key ===
   useEffect(() => {
     if (stream && videoRef.current) {
       const video = videoRef.current;
@@ -163,7 +153,7 @@ function InteractiveAvatar() {
         style={{
           width: "320px",
           border: "1px solid #6d2a8f",
-          background: "rgba(0,0,0,0.9)", // fond noir quasi opaque
+          background: "rgba(0,0,0,0.9)",
           borderRadius: "10px",
         }}
       >
