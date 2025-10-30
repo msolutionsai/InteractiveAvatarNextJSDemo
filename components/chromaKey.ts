@@ -1,5 +1,5 @@
 /**
- * 🎨 Chroma Key — effet flottant transparent amélioré
+ * 🎨 Chroma Key — effet flottant transparent amélioré (version stable)
  * Supprime le vert Heygen et garde un fond semi-transparent, doux et naturel.
  * Compatible avec le SDK Heygen Streaming Avatar.
  */
@@ -33,6 +33,9 @@ export function applyChromaKey(
   });
 
   if (!ctx || sourceVideo.readyState < 2) return;
+
+  // ✅ Vérifie que la vidéo est bien initialisée
+  if (sourceVideo.videoWidth === 0 || sourceVideo.videoHeight === 0) return;
 
   // dimensions
   targetCanvas.width = sourceVideo.videoWidth;
