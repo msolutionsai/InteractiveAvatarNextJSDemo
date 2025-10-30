@@ -19,6 +19,7 @@ import { LoadingIcon } from "./Icons";
 import { Button } from "./Button";
 import { setupChromaKey } from "./chromaKey";
 
+// ✅ Configuration de base
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
@@ -32,7 +33,10 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
   },
   language: "fr",
   voiceChatTransport: VoiceChatTransport.WEBSOCKET,
-  sttSettings: { provider: STTProvider.DEEPGRAM },
+  sttSettings: {
+    provider: STTProvider.DEEPGRAM,
+    language: "fr",
+  },
 };
 
 function InteractiveAvatar() {
@@ -52,7 +56,9 @@ function InteractiveAvatar() {
   // === Auth ===
   const fetchAccessToken = async () => {
     const response = await fetch("/api/get-access-token", { method: "POST" });
-    return response.text();
+    const token = await response.text();
+    console.log("🔑 Token Heygen reçu:", token ? "✅" : "❌ vide");
+    return token;
   };
 
   // === Démarrage session ===
@@ -60,11 +66,34 @@ function InteractiveAvatar() {
     try {
       const token = await fetchAccessToken();
       const avatar = initAvatar(token);
-      avatar.on(StreamingEvents.STREAM_READY, () => {});
-      await startAvatar({ ...config, language: selectedLanguage });
-      await startVoiceChat();
+
+      // ✅ Ajout des événements de diagnostic
+      avatar.on(StreamingEvents.STREAM_READY, async () => {
+        console.log("📡 STREAM_READY → Lancement avatar");
+        await startAvatar({
+          ...config,
+          language: selectedLanguage,
+          sttSettings: {
+            provider: STTProvider.DEEPGRAM,
+            language: selectedLanguage,
+          },
+        });
+        await startVoiceChat();
+      });
+
+      avatar.on(StreamingEvents.ERROR, (err) =>
+        console.error("⚠️ Erreur Streaming:", err)
+      );
+
+      avatar.on(StreamingEvents.TRANSCRIPT, (t) =>
+        console.log("🎙️ Transcription:", t)
+      );
+
+      avatar.on(StreamingEvents.AGENT_RESPONSE, (r) =>
+        console.log("🤖 Réponse agent:", r)
+      );
     } catch (err) {
-      console.error("Erreur démarrage avatar :", err);
+      console.error("❌ Erreur au démarrage avatar:", err);
     }
   });
 
@@ -74,7 +103,7 @@ function InteractiveAvatar() {
     if (stopChromaRef.current) stopChromaRef.current();
   });
 
-  // === Gestion du flux vidéo + Chroma Key ===
+  // === Flux vidéo + chroma ===
   useEffect(() => {
     if (stream && videoRef.current) {
       const video = videoRef.current;
@@ -88,23 +117,19 @@ function InteractiveAvatar() {
     }
   }, [stream]);
 
-  // === Envoi texte vers avatar (universel) ===
+  // === Envoi texte vers avatar ===
   const sendText = useMemoizedFn(async () => {
     const msg = textValue.trim();
     if (!msg) return;
 
     try {
-      if (isVoiceChatActive) {
-        await stopVoiceChat();
-        await new Promise((r) => setTimeout(r, 200));
-      }
-
       const ref: any = avatarRef.current;
       if (!ref) return console.warn("⚠️ Avatar non prêt à recevoir du texte");
 
-      console.log("💬 Envoi du texte :", msg);
+      console.log("💬 Envoi du texte:", msg);
 
-      if (typeof ref.sendTextMessage === "function") await ref.sendTextMessage(msg);
+      if (typeof ref.sendText === "function") await ref.sendText(msg);
+      else if (typeof ref.sendTextMessage === "function") await ref.sendTextMessage(msg);
       else if (typeof ref.inputText === "function") await ref.inputText(msg);
       else if (typeof ref.sendMessage === "function")
         await ref.sendMessage({ type: "text", text: msg });
@@ -115,7 +140,7 @@ function InteractiveAvatar() {
 
       setTextValue("");
     } catch (e) {
-      console.error("Erreur envoi texte :", e);
+      console.error("Erreur envoi texte:", e);
     }
   });
 
@@ -138,7 +163,7 @@ function InteractiveAvatar() {
         style={{
           width: "320px",
           border: "1px solid #6d2a8f",
-          background: "rgba(0,0,0,0.9)", // ✅ fond noir quasi opaque
+          background: "rgba(0,0,0,0.9)", // fond noir quasi opaque
           borderRadius: "10px",
         }}
       >
@@ -147,8 +172,8 @@ function InteractiveAvatar() {
           className="relative"
           style={{
             width: "100%",
-            height: 320, // ✅ format plus carré
-            background: "black", // ✅ fond noir stable
+            height: 320,
+            background: "black",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -159,9 +184,7 @@ function InteractiveAvatar() {
               <canvas
                 ref={canvasRef}
                 className="absolute inset-0 w-full h-full object-cover"
-                style={{
-                  background: "rgba(0,0,0,0.95)", // ✅ fond noir léger
-                }}
+                style={{ background: "rgba(0,0,0,0.95)" }}
               />
               <video ref={videoRef} autoPlay playsInline muted className="hidden" />
             </>
@@ -175,9 +198,7 @@ function InteractiveAvatar() {
               alt="Aperçu avatar"
               className="w-full h-full object-cover"
               draggable={false}
-              style={{
-                background: "black",
-              }}
+              style={{ background: "black" }}
             />
           )}
         </div>
@@ -186,7 +207,7 @@ function InteractiveAvatar() {
         <div
           className="flex flex-col gap-2 p-2 w-full"
           style={{
-            background: "rgba(0,0,0,0.9)", // fond noir légèrement transparent
+            background: "rgba(0,0,0,0.9)",
             borderTop: "1px solid #6d2a8f",
           }}
         >
