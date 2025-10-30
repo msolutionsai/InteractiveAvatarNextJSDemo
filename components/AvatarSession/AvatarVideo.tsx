@@ -32,19 +32,35 @@ export const AvatarVideo = forwardRef<HTMLVideoElement, AvatarVideoProps>(
 
     return (
       <div
-        className="relative flex items-center justify-center w-full h-full overflow-hidden rounded-xl"
-        style={{
-          backgroundColor: "#000000", // ✅ fond noir neutre
-        }}
+        className="relative flex items-center justify-center w-full h-full overflow-hidden rounded-xl bg-transparent"
       >
-        {/* ✅ Calque anti-vert pour couvrir tout artefact */}
-        <div
-          className="absolute inset-0 z-[2] pointer-events-none"
+        {/* ✅ Canvas pour appliquer la transparence (chroma key) */}
+        <canvas
+          id="avatarCanvas"
+          className="absolute inset-0 w-full h-full"
           style={{
-            backgroundColor: "rgba(0, 0, 0, 0.85)", // noir légèrement transparent
-            mixBlendMode: "multiply",
+            display: "none", // on l'activera dynamiquement
+            borderRadius: "12px",
+            backgroundColor: "transparent",
+            zIndex: 2,
           }}
-        />
+        ></canvas>
+
+        {/* ✅ Vidéo Heygen brute (fond vert à filtrer via canvas) */}
+        <video
+          ref={ref || internalRef}
+          autoPlay
+          playsInline
+          muted={false}
+          className="w-full h-full"
+          style={{
+            objectFit: "contain",
+            backgroundColor: "transparent",
+            zIndex: 1,
+          }}
+        >
+          <track kind="captions" />
+        </video>
 
         {/* Indicateur qualité connexion */}
         {connectionQuality !== ConnectionQuality.UNKNOWN && (
@@ -62,23 +78,6 @@ export const AvatarVideo = forwardRef<HTMLVideoElement, AvatarVideoProps>(
             <CloseIcon />
           </Button>
         )}
-
-        {/* Flux vidéo Heygen */}
-        <video
-          ref={ref || internalRef}
-          autoPlay
-          playsInline
-          muted={false}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain", // conserve la bonne proportion
-            backgroundColor: "transparent",
-            zIndex: 1,
-          }}
-        >
-          <track kind="captions" />
-        </video>
 
         {/* Message de chargement */}
         {!isLoaded && (
