@@ -49,11 +49,13 @@ function InteractiveAvatar() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stopChromaRef = useRef<(() => void) | null>(null);
 
+  // --- Auth Token Heygen ---
   const fetchAccessToken = async () => {
     const response = await fetch("/api/get-access-token", { method: "POST" });
     return response.text();
   };
 
+  // --- Démarrage session ---
   const startSession = useMemoizedFn(async () => {
     try {
       const token = await fetchAccessToken();
@@ -66,49 +68,62 @@ function InteractiveAvatar() {
     }
   });
 
+  // --- Nettoyage ---
   useUnmount(() => {
     stopAvatar();
     if (stopChromaRef.current) stopChromaRef.current();
   });
 
+  // --- Gestion du flux vidéo + canvas chroma key ---
   useEffect(() => {
     if (stream && mediaRef.current) {
       const video = mediaRef.current;
       const canvas = canvasRef.current!;
       video.srcObject = stream;
       video.onloadedmetadata = () => {
-        video.play();
+        video.play().catch(() => {});
         if (stopChromaRef.current) stopChromaRef.current();
         stopChromaRef.current = setupChromaKey(video, canvas);
       };
     }
   }, [stream]);
 
-  // ✅ Envoi du texte vers l’avatar
+  // --- Envoi texte vers avatar ---
   const sendText = useMemoizedFn(async () => {
     const msg = textValue.trim();
     if (!msg) return;
+
     try {
+      if (isVoiceChatActive) {
+        await stopVoiceChat();
+        await new Promise((r) => setTimeout(r, 200));
+      }
+
       const ref: any = avatarRef.current;
       if (!ref) {
-        console.warn("Avatar non prêt pour recevoir du texte");
+        console.warn("⚠️ Avatar non prêt pour recevoir du texte");
         return;
       }
 
-      console.log("🧠 Envoi du texte à l’avatar :", msg);
+      console.log("💬 Envoi du texte à l’avatar :", msg);
 
-      // Test successif des différentes méthodes selon SDK
-      if (typeof ref.sendMessage === "function") {
-        await ref.sendMessage({ type: "text", text: msg });
+      // compatibilité multi-version du SDK
+      if (typeof ref.sendTextMessage === "function") {
+        await ref.sendTextMessage(msg);
       } else if (typeof ref.inputText === "function") {
         await ref.inputText(msg);
-      } else if (typeof ref.sendTextMessage === "function") {
-        await ref.sendTextMessage(msg);
+      } else if (typeof ref.sendMessage === "function") {
+        await ref.sendMessage({ type: "text", text: msg });
+      } else if (typeof ref.send === "function") {
+        await ref.send({ type: "text", text: msg });
       } else {
         console.warn("❌ Aucune méthode compatible trouvée sur avatarRef");
       }
 
       setTextValue("");
+
+      // facultatif : relancer le micro après envoi
+      // await startVoiceChat();
     } catch (e) {
       console.error("Erreur envoi texte :", e);
     }
@@ -116,48 +131,39 @@ function InteractiveAvatar() {
 
   return (
     <div
-  className="flex items-center justify-center bg-transparent overflow-hidden"
-  style={{
-    width: "560px",
-    height: "600px",
-    margin: "0 auto",
-    backgroundColor: "transparent",
-  }}
->
+      className="flex items-center justify-center bg-transparent overflow-hidden"
+      style={{
+        width: "560px",
+        height: "600px",
+        margin: "0 auto",
+        backgroundColor: "transparent",
+      }}
+    >
       <div
         className="flex flex-col items-stretch justify-between rounded-xl overflow-hidden shadow-2xl"
         style={{
           width: "100%",
-          maxWidth: "480px", // ✅ taille fixe alignée au cadre violet
+          maxWidth: "480px",
           background: "rgba(0,0,0,0.85)",
           border: "1px solid #480559",
         }}
       >
-        {/* Zone principale */}
+        {/* === Zone principale === */}
         <div className="relative w-full" style={{ height: 480 }}>
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
             <>
-              {/* ✅ Canvas avec fond transparent réel */}
               <canvas
                 ref={canvasRef}
                 className="absolute inset-0 w-full h-full object-contain rounded-xl"
                 style={{ background: "transparent" }}
               />
-              {/* ✅ Vidéo cachée servant au traitement */}
-              <video
-                ref={mediaRef}
-                autoPlay
-                playsInline
-                muted
-                className="hidden"
-              />
+              <video ref={mediaRef} autoPlay playsInline muted className="hidden" />
             </>
           ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
             <div className="flex items-center justify-center w-full h-full">
               <LoadingIcon />
             </div>
           ) : (
-            // Écran d’accueil
             <div className="flex flex-col w-full h-full items-center justify-between p-4">
               <div className="flex-1 flex items-center justify-center w-full">
                 <img
@@ -168,7 +174,6 @@ function InteractiveAvatar() {
                 />
               </div>
 
-              {/* Boutons en bas */}
               <div className="w-full flex items-center justify-center gap-2 mt-3">
                 <div className="relative">
                   <select
@@ -206,7 +211,7 @@ function InteractiveAvatar() {
           )}
         </div>
 
-        {/* Barre de commandes */}
+        {/* === Barre commandes === */}
         {sessionState === StreamingAvatarSessionState.CONNECTED && (
           <div
             className="flex flex-col gap-3 p-3 w-full"
