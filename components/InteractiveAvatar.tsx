@@ -116,11 +116,14 @@ function InteractiveAvatar() {
 
   return (
     <div
-      className="flex items-center justify-center w-full bg-transparent overflow-hidden"
-      style={{
-        height: "580px", // ✅ hauteur adaptée à l’iframe
-      }}
-    >
+  className="flex items-center justify-center bg-transparent overflow-hidden"
+  style={{
+    width: "560px",
+    height: "600px",
+    margin: "0 auto",
+    backgroundColor: "transparent",
+  }}
+>
       <div
         className="flex flex-col items-stretch justify-between rounded-xl overflow-hidden shadow-2xl"
         style={{
