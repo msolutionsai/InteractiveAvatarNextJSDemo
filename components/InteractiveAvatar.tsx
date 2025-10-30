@@ -7,7 +7,6 @@ import {
   StartAvatarRequest,
   STTProvider,
   ElevenLabsModel,
-  StreamingEvents,
 } from "@heygen/streaming-avatar";
 import { useEffect, useRef, useState } from "react";
 import { useMemoizedFn, useUnmount } from "ahooks";
@@ -19,7 +18,7 @@ import { LoadingIcon } from "./Icons";
 import { Button } from "./Button";
 import { setupChromaKey } from "./chromaKey";
 
-// ✅ Configuration stable pour SDK 2025 compatible Vercel
+// ✅ Configuration stable
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
@@ -64,7 +63,7 @@ function InteractiveAvatar() {
     }
   };
 
-  // === Démarrage session (compatible SDK Heygen stable) ===
+  // === Démarrage session (version stable SDK) ===
   const startSession = useMemoizedFn(async () => {
     try {
       setIsLoading(true);
@@ -74,23 +73,16 @@ function InteractiveAvatar() {
 
       const avatar = initAvatar(token);
 
-      avatar.on(StreamingEvents.STREAM_READY, async () => {
+      // Événement quand le flux est prêt
+      avatar.on("stream_ready", async () => {
         console.log("📡 Flux prêt → démarrage avatar");
         await startAvatar({ ...config, language: selectedLanguage });
         await startVoiceChat();
       });
 
-      avatar.on(StreamingEvents.TRANSCRIPT, (t) =>
-        console.log("🎙️ Transcription:", t)
-      );
-
-      avatar.on(StreamingEvents.AGENT_RESPONSE, (r) =>
-        console.log("🤖 Réponse agent:", r)
-      );
-
-      avatar.on(StreamingEvents.ERROR, (err) =>
-        console.error("⚠️ Erreur Streaming:", err)
-      );
+      avatar.on("transcript", (t: any) => console.log("🎙️ Transcription:", t));
+      avatar.on("agent_response", (r: any) => console.log("🤖 Réponse agent:", r));
+      avatar.on("error", (err: any) => console.error("⚠️ Erreur Streaming:", err));
 
       setIsLoading(false);
     } catch (err) {
