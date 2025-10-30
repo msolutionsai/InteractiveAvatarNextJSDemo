@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* === Fond transparent et centrage global === */
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent !important; /* ✅ fond totalement transparent */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh; /* prend toute la hauteur de la fenêtre */
+  overflow: hidden; /* empêche les barres de défilement */
+}
+
+/* === Styles existants (optionnel) === */
 li {
   list-style-type: square;
   margin-left: 30px;
