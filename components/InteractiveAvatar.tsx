@@ -74,7 +74,7 @@ function InteractiveAvatar() {
     if (stopChromaRef.current) stopChromaRef.current();
   });
 
-  // --- Gestion du flux vidéo + canvas chroma key ---
+  // --- Gestion du flux vidéo + chroma key ---
   useEffect(() => {
     if (stream && mediaRef.current) {
       const video = mediaRef.current;
@@ -94,6 +94,7 @@ function InteractiveAvatar() {
     if (!msg) return;
 
     try {
+      // Stopper la voix avant texte pour éviter conflit
       if (isVoiceChatActive) {
         await stopVoiceChat();
         await new Promise((r) => setTimeout(r, 200));
@@ -107,23 +108,20 @@ function InteractiveAvatar() {
 
       console.log("💬 Envoi du texte à l’avatar :", msg);
 
-      // compatibilité multi-version du SDK
-      if (typeof ref.sendTextMessage === "function") {
-        await ref.sendTextMessage(msg);
+      // Compatibilité multi-version du SDK
+      if (typeof ref.sendMessage === "function") {
+        await ref.sendMessage({ type: "text", text: msg });
       } else if (typeof ref.inputText === "function") {
         await ref.inputText(msg);
-      } else if (typeof ref.sendMessage === "function") {
-        await ref.sendMessage({ type: "text", text: msg });
+      } else if (typeof ref.sendTextMessage === "function") {
+        await ref.sendTextMessage(msg);
       } else if (typeof ref.send === "function") {
-        await ref.send({ type: "text", text: msg });
+        await ref.send({ type: "input_text", text: msg });
       } else {
         console.warn("❌ Aucune méthode compatible trouvée sur avatarRef");
       }
 
       setTextValue("");
-
-      // facultatif : relancer le micro après envoi
-      // await startVoiceChat();
     } catch (e) {
       console.error("Erreur envoi texte :", e);
     }
@@ -131,21 +129,27 @@ function InteractiveAvatar() {
 
   return (
     <div
-      className="flex items-center justify-center bg-transparent overflow-hidden"
+      id="embed-root"
       style={{
-        width: "560px",
-        height: "600px",
-        margin: "0 auto",
-        backgroundColor: "transparent",
+        width: 480,
+        height: 600,
+        margin: 0,
+        padding: 0,
+        background: "transparent",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
       <div
         className="flex flex-col items-stretch justify-between rounded-xl overflow-hidden shadow-2xl"
         style={{
           width: "100%",
-          maxWidth: "480px",
-          background: "rgba(0,0,0,0.85)",
+          height: "100%",
           border: "1px solid #480559",
+          background: "rgba(0,0,0,0.85)",
+          borderRadius: "12px",
         }}
       >
         {/* === Zone principale === */}
@@ -164,6 +168,7 @@ function InteractiveAvatar() {
               <LoadingIcon />
             </div>
           ) : (
+            // === Écran d’accueil ===
             <div className="flex flex-col w-full h-full items-center justify-between p-4">
               <div className="flex-1 flex items-center justify-center w-full">
                 <img
