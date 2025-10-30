@@ -185,4 +185,160 @@ function InteractiveAvatar() {
             background: "black",
             display: "flex",
             justifyContent: "center",
-           
+            alignItems: "center",
+          }}
+        >
+          {sessionState === StreamingAvatarSessionState.CONNECTED ? (
+            <>
+              <canvas
+                ref={canvasRef}
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{ background: "rgba(0,0,0,0.95)" }}
+              />
+              <video ref={videoRef} autoPlay playsInline muted className="hidden" />
+            </>
+          ) : isLoading ? (
+            <div className="flex items-center justify-center w-full h-full">
+              <LoadingIcon />
+            </div>
+          ) : (
+            <img
+              src="/katya_preview.jpg"
+              alt="Aperçu avatar"
+              className="w-full h-full object-cover"
+              draggable={false}
+              style={{ background: "black" }}
+            />
+          )}
+        </div>
+
+        {/* === Barre de commandes === */}
+        <div
+          className="flex flex-col gap-2 p-2 w-full"
+          style={{
+            background: "rgba(0,0,0,0.9)",
+            borderTop: "1px solid #6d2a8f",
+          }}
+        >
+          {sessionState === StreamingAvatarSessionState.CONNECTED ? (
+            <>
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  className="text-white text-xs font-medium px-3 py-1.5 rounded-full"
+                  style={{
+                    backgroundColor: "transparent",
+                    border: "1px solid #6d2a8f",
+                  }}
+                  onClick={() =>
+                    isVoiceChatActive ? stopVoiceChat() : startVoiceChat()
+                  }
+                >
+                  {isVoiceChatActive ? "Couper micro" : "Micro"}
+                </Button>
+
+                <Button
+                  className="text-white text-xs font-medium px-3 py-1.5 rounded-full"
+                  style={{
+                    backgroundColor: "transparent",
+                    border: "1px solid #6d2a8f",
+                  }}
+                  onClick={() => setShowTextBox((v) => !v)}
+                >
+                  Texte
+                </Button>
+
+                <Button
+                  className="text-white text-xs font-medium px-3 py-1.5 rounded-full"
+                  style={{
+                    backgroundColor: "transparent",
+                    border: "1px solid #ff4444",
+                  }}
+                  onClick={() => stopAvatar()}
+                >
+                  Fin
+                </Button>
+              </div>
+
+              {showTextBox && (
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    value={textValue}
+                    onChange={(e) => setTextValue(e.target.value)}
+                    placeholder="Écrivez…"
+                    className="flex-1 px-2 py-1 text-xs rounded-md bg-black border border-neutral-700 text-white"
+                  />
+                  <Button
+                    className="text-white text-xs font-medium px-3 py-1.5 rounded-md"
+                    style={{
+                      backgroundColor: "#6d2a8f",
+                      border: "1px solid #6d2a8f",
+                    }}
+                    onClick={sendText}
+                  >
+                    Envoyer
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="w-full flex items-center justify-center gap-2">
+              <div className="relative">
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="px-3 pr-7 py-1.5 text-xs text-white rounded-full bg-neutral-800 border border-neutral-700 appearance-none"
+                  style={{ width: 150 }}
+                >
+                  <option value="fr">🇫🇷 Français</option>
+                  <option value="en">🇬🇧 Anglais</option>
+                  <option value="es">🇪🇸 Espagnol</option>
+                  <option value="de">🇩🇪 Allemand</option>
+                  <option value="it">🇮🇹 Italien</option>
+                  <option value="pt">🇵🇹 Portugais</option>
+                </select>
+                <span
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-neutral-300"
+                  style={{ fontSize: 9 }}
+                >
+                  ▼
+                </span>
+              </div>
+
+              <button
+                onClick={startSession}
+                disabled={isLoading}
+                className="px-3 py-1.5 text-xs font-semibold text-white rounded-full hover:bg-[#5a0771]"
+                style={{
+                  backgroundColor: isLoading ? "#444" : "#6d2a8f",
+                  border: "1px solid #6d2a8f",
+                  opacity: isLoading ? 0.6 : 1,
+                }}
+              >
+                {isLoading ? "Chargement…" : "Lancer"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* === Variante responsive === */}
+      <style jsx>{`
+        @media (max-width: 768px) {
+          #embed-root {
+            max-width: 90vw;
+            aspect-ratio: 3 / 4;
+            transition: all 0.4s ease;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+export default function InteractiveAvatarWrapper() {
+  return (
+    <StreamingAvatarProvider basePath={process.env.NEXT_PUBLIC_BASE_API_URL}>
+      <InteractiveAvatar />
+    </StreamingAvatarProvider>
+  );
+}
