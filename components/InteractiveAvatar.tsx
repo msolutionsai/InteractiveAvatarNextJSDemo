@@ -18,7 +18,7 @@ import { LoadingIcon } from "./Icons";
 import { Button } from "./Button";
 import { setupChromaKey } from "./chromaKey";
 
-// ✅ Configuration principale : stable et compatible
+// ✅ Configuration principale : stable et compatible SDK 2025
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
@@ -60,8 +60,18 @@ function InteractiveAvatar() {
   // === Démarrage session ===
   const startSession = useMemoizedFn(async () => {
     try {
+      console.log("🚀 Démarrage de la session avatar...");
       const token = await fetchAccessToken();
+
+      if (!token) {
+        console.error("❌ Aucun token reçu depuis /api/get-access-token");
+        return;
+      }
+
       const avatar = initAvatar(token);
+
+      // ✅ Nouveau SDK : connexion explicite requise
+      await avatar.connect();
 
       // ✅ Gestion des événements SDK récents
       avatar.on("stream_ready", async () => {
