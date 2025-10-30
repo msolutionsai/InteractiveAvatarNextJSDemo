@@ -1,6 +1,6 @@
 /**
- * 🎨 Chroma Key avec fond semi-transparent
- * Supprime le vert et remplace par une transparence partielle (effet "flottant").
+ * 🎨 Chroma Key — effet flottant transparent amélioré
+ * Supprime le vert Heygen et garde un fond semi-transparent, doux et naturel.
  * Compatible avec le SDK Heygen Streaming Avatar.
  */
 
@@ -12,17 +12,19 @@ export function applyChromaKey(
     maxHue?: number;
     minSaturation?: number;
     threshold?: number;
-    backgroundColor?: string; // 🆕 couleur de fond (semi-transparente)
-    transparencyLevel?: number; // 🆕 niveau de transparence (0-255)
+    transparencyLevel?: number;
+    softness?: number; // 🆕 flou des bords
+    backgroundColor?: string;
   } = {}
 ): void {
   const {
-    minHue = 60,
-    maxHue = 180,
-    minSaturation = 0.1,
+    minHue = 60, // teinte min verte
+    maxHue = 180, // teinte max verte
+    minSaturation = 0.15,
     threshold = 1.0,
-    backgroundColor = "rgba(0,0,0,0.3)", // ✅ fond noir semi-transparent
-    transparencyLevel = 60, // ✅ opacité résiduelle pour le vert
+    transparencyLevel = 30, // 0-255 : 30 = quasi invisible
+    softness = 2, // 🧊 flou léger des bords
+    backgroundColor = "rgba(0,0,0,0.0)", // ⚡ totalement transparent
   } = options;
 
   const ctx = targetCanvas.getContext("2d", {
@@ -32,16 +34,16 @@ export function applyChromaKey(
 
   if (!ctx || sourceVideo.readyState < 2) return;
 
-  // Synchronise dimensions vidéo/canvas
+  // dimensions
   targetCanvas.width = sourceVideo.videoWidth;
   targetCanvas.height = sourceVideo.videoHeight;
 
-  // Capture frame
+  // capture frame vidéo
   ctx.drawImage(sourceVideo, 0, 0, targetCanvas.width, targetCanvas.height);
   const frame = ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
   const data = frame.data;
 
-  // Parcours pixels
+  // suppression du vert
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
@@ -71,15 +73,22 @@ export function applyChromaKey(
       g > r * threshold &&
       g > b * threshold;
 
+    // 💫 Pixels verts → transparents
     if (isGreen) {
-      // 💫 Semi-transparence du vert
-      data[i + 3] = transparencyLevel; // 0 = transparent / 255 = opaque
+      data[i + 3] = transparencyLevel;
     }
   }
 
   ctx.putImageData(frame, 0, 0);
 
-  // 💫 Ajoute un fond semi-transparent doux (visible à travers l’iframe)
+  // 💫 flou doux sur les bords (effet “fondu” naturel)
+  if (softness > 0) {
+    ctx.filter = `blur(${softness}px)`;
+    ctx.drawImage(targetCanvas, 0, 0);
+    ctx.filter = "none";
+  }
+
+  // 💫 fond transparent (aucune teinte forcée)
   ctx.globalCompositeOperation = "destination-over";
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
@@ -87,7 +96,7 @@ export function applyChromaKey(
 }
 
 /**
- * 🚀 Boucle continue (rafraîchit le rendu chroma key en temps réel)
+ * 🚀 Boucle de rendu continue — chroma key temps réel
  */
 export function setupChromaKey(
   sourceVideo: HTMLVideoElement,
@@ -102,7 +111,6 @@ export function setupChromaKey(
 
   render();
 
-  // ✅ Fonction de nettoyage
   return () => {
     if (frameId !== null) cancelAnimationFrame(frameId);
   };
