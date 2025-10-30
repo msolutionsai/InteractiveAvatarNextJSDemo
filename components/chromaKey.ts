@@ -1,6 +1,6 @@
 /**
- * 🎨 Chroma Key — effet flottant transparent amélioré (version stable)
- * Supprime le vert Heygen et garde un fond semi-transparent, doux et naturel.
+ * 🎨 Chroma Key — suppression du vert Heygen + fond flottant naturel
+ * Corrige les résidus verts (#0f3d0f) et garde un fond noir semi-transparent.
  * Compatible avec le SDK Heygen Streaming Avatar.
  */
 
@@ -13,35 +13,32 @@ export function applyChromaKey(
     minSaturation?: number;
     threshold?: number;
     transparencyLevel?: number;
-    softness?: number; // 🆕 flou des bords
+    softness?: number; // flou des bords
     backgroundColor?: string;
   } = {}
 ): void {
   const {
-    minHue = 60, // teinte min verte
-    maxHue = 180, // teinte max verte
-    minSaturation = 0.15,
+    minHue = 40, // étend la détection du vert clair au vert foncé
+    maxHue = 190,
+    minSaturation = 0.1,
     threshold = 1.0,
-    transparencyLevel = 30, // 0-255 : 30 = quasi invisible
-    softness = 2, // 🧊 flou léger des bords
-    backgroundColor = "rgba(0,0,0,0.0)", // ⚡ totalement transparent
+    transparencyLevel = 70, // 0–255 : plus haut = plus transparent
+    softness = 2,
+    backgroundColor = "rgba(0,0,0,0.35)", // voile noir semi-transparent
   } = options;
 
   const ctx = targetCanvas.getContext("2d", {
     willReadFrequently: true,
     alpha: true,
   });
-
   if (!ctx || sourceVideo.readyState < 2) return;
 
-  // ✅ Vérifie que la vidéo est bien initialisée
+  // ✅ empêche le traitement sur frame vide
   if (sourceVideo.videoWidth === 0 || sourceVideo.videoHeight === 0) return;
 
-  // dimensions
   targetCanvas.width = sourceVideo.videoWidth;
   targetCanvas.height = sourceVideo.videoHeight;
 
-  // capture frame vidéo
   ctx.drawImage(sourceVideo, 0, 0, targetCanvas.width, targetCanvas.height);
   const frame = ctx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
   const data = frame.data;
@@ -77,21 +74,19 @@ export function applyChromaKey(
       g > b * threshold;
 
     // 💫 Pixels verts → transparents
-    if (isGreen) {
-      data[i + 3] = transparencyLevel;
-    }
+    if (isGreen) data[i + 3] = transparencyLevel;
   }
 
   ctx.putImageData(frame, 0, 0);
 
-  // 💫 flou doux sur les bords (effet “fondu” naturel)
+  // 💫 flou doux sur les bords
   if (softness > 0) {
     ctx.filter = `blur(${softness}px)`;
     ctx.drawImage(targetCanvas, 0, 0);
     ctx.filter = "none";
   }
 
-  // 💫 fond transparent (aucune teinte forcée)
+  // 💫 ajoute un fond noir semi-transparent (visible sur fond violet)
   ctx.globalCompositeOperation = "destination-over";
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
