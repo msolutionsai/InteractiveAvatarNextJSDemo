@@ -18,7 +18,7 @@ import { LoadingIcon } from "./Icons";
 import { Button } from "./Button";
 import { setupChromaKey } from "./chromaKey";
 
-// ✅ Configuration principale : stable et compatible SDK 2025
+// ✅ Configuration principale stable
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
@@ -44,6 +44,7 @@ function InteractiveAvatar() {
   const [selectedLanguage, setSelectedLanguage] = useState("fr");
   const [showTextBox, setShowTextBox] = useState(false);
   const [textValue, setTextValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -51,48 +52,46 @@ function InteractiveAvatar() {
 
   // === Auth ===
   const fetchAccessToken = async () => {
-    const response = await fetch("/api/get-access-token", { method: "POST" });
-    const token = await response.text();
-    console.log("🔑 Token Heygen reçu:", token ? "✅" : "❌ vide");
-    return token;
+    try {
+      const response = await fetch("/api/get-access-token", { method: "POST" });
+      const token = await response.text();
+      console.log("🔑 Token Heygen reçu:", token ? "✅" : "❌ vide");
+      return token;
+    } catch (e) {
+      console.error("❌ Erreur récupération token:", e);
+      return "";
+    }
   };
 
   // === Démarrage session ===
   const startSession = useMemoizedFn(async () => {
     try {
+      setIsLoading(true);
       console.log("🚀 Démarrage de la session avatar...");
       const token = await fetchAccessToken();
-
-      if (!token) {
-        console.error("❌ Aucun token reçu depuis /api/get-access-token");
-        return;
-      }
+      if (!token) return;
 
       const avatar = initAvatar(token);
 
-      // ✅ Nouveau SDK : connexion explicite requise
+      // ✅ Nouvelle séquence Heygen
       await avatar.connect();
+      await avatar.start(); // ⬅️ Démarrage manuel du flux vidéo/audio
 
-      // ✅ Gestion des événements SDK récents
+      avatar.on("connected", () => console.log("🟢 Avatar connecté"));
       avatar.on("stream_ready", async () => {
-        console.log("📡 Stream prêt → démarrage avatar");
+        console.log("📡 Flux prêt → lancement avatar");
         await startAvatar({ ...config, language: selectedLanguage });
         await startVoiceChat();
       });
 
-      avatar.on("error", (err: any) =>
-        console.error("⚠️ Erreur Streaming:", err)
-      );
+      avatar.on("transcript", (t: any) => console.log("🎙️ Transcription:", t));
+      avatar.on("agent_response", (r: any) => console.log("🤖 Réponse agent:", r));
+      avatar.on("error", (err: any) => console.error("⚠️ Erreur Streaming:", err));
 
-      avatar.on("transcript", (t: any) =>
-        console.log("🎙️ Transcription:", t)
-      );
-
-      avatar.on("agent_response", (r: any) =>
-        console.log("🤖 Réponse agent:", r)
-      );
+      setIsLoading(false);
     } catch (err) {
       console.error("❌ Erreur au démarrage avatar:", err);
+      setIsLoading(false);
     }
   });
 
@@ -109,7 +108,7 @@ function InteractiveAvatar() {
       const canvas = canvasRef.current!;
       video.srcObject = stream;
       video.onloadedmetadata = () => {
-        if (video.videoWidth === 0 || video.videoHeight === 0) return; // ✅ sécurité
+        if (video.videoWidth === 0 || video.videoHeight === 0) return;
         video.play().catch(() => {});
         if (stopChromaRef.current) stopChromaRef.current();
         stopChromaRef.current = setupChromaKey(video, canvas);
@@ -135,8 +134,6 @@ function InteractiveAvatar() {
         await ref.sendMessage({ type: "text", text: msg });
       else if (typeof ref.send === "function")
         await ref.send({ type: "text", text: msg });
-      else if (typeof ref.message === "function") await ref.message(msg);
-      else console.warn("❌ Aucune méthode compatible trouvée sur avatarRef");
 
       setTextValue("");
     } catch (e) {
@@ -149,7 +146,8 @@ function InteractiveAvatar() {
     <div
       id="embed-root"
       style={{
-        width: 340,
+        width: "100%",
+        maxWidth: 340,
         margin: "0 auto",
         background: "transparent",
         overflow: "hidden",
@@ -161,7 +159,7 @@ function InteractiveAvatar() {
       <div
         className="flex flex-col items-center justify-start rounded-xl overflow-hidden shadow-xl"
         style={{
-          width: "320px",
+          width: "100%",
           border: "1px solid #6d2a8f",
           background: "rgba(0,0,0,0.9)",
           borderRadius: "10px",
@@ -188,7 +186,7 @@ function InteractiveAvatar() {
               />
               <video ref={videoRef} autoPlay playsInline muted className="hidden" />
             </>
-          ) : sessionState === StreamingAvatarSessionState.CONNECTING ? (
+          ) : isLoading ? (
             <div className="flex items-center justify-center w-full h-full">
               <LoadingIcon />
             </div>
@@ -296,14 +294,16 @@ function InteractiveAvatar() {
               </div>
 
               <button
-                onClick={() => startSession()}
+                onClick={startSession}
+                disabled={isLoading}
                 className="px-3 py-1.5 text-xs font-semibold text-white rounded-full hover:bg-[#5a0771]"
                 style={{
-                  backgroundColor: "#6d2a8f",
+                  backgroundColor: isLoading ? "#444" : "#6d2a8f",
                   border: "1px solid #6d2a8f",
+                  opacity: isLoading ? 0.6 : 1,
                 }}
               >
-                Lancer
+                {isLoading ? "Chargement…" : "Lancer"}
               </button>
             </div>
           )}
