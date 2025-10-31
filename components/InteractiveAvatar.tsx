@@ -53,7 +53,20 @@ function InteractiveAvatar() {
   // === Auth ===
   const fetchAccessToken = async () => {
     try {
-      const response = await fetch("/api/get-access-token", { method: "POST" });
+      // ✅ Appelle la route absolue (plus de 404 sur anciens déploiements)
+      const baseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        (typeof window !== "undefined" ? window.location.origin : "");
+      const response = await fetch(`${baseUrl}/api/get-access-token`, {
+        method: "POST",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        console.error("❌ Erreur backend:", response.status, response.statusText);
+        return "";
+      }
+
       const token = await response.text();
       console.log("🔑 Token Heygen reçu:", token ? "✅" : "❌ vide");
       return token;
@@ -63,7 +76,7 @@ function InteractiveAvatar() {
     }
   };
 
-  // === Démarrage session stable (avec gestion correcte des événements)
+  // === Démarrage session stable
   const startSession = useMemoizedFn(async () => {
     try {
       setIsLoading(true);
@@ -79,7 +92,7 @@ function InteractiveAvatar() {
       const avatar = initAvatar(token);
       console.log("✅ Avatar initialisé, attente du flux...");
 
-      let hasStarted = false; // ✅ garde anti double appel
+      let hasStarted = false; // ✅ prévention double démarrage
 
       avatar.on("stream_ready", async () => {
         if (hasStarted) return;
@@ -157,7 +170,7 @@ function InteractiveAvatar() {
       style={{
         width: "100%",
         maxWidth: "480px",
-        aspectRatio: "3 / 4", // ✅ 480x640
+        aspectRatio: "3 / 4",
         margin: "0 auto",
         background: "transparent",
         overflow: "hidden",
@@ -321,7 +334,6 @@ function InteractiveAvatar() {
         </div>
       </div>
 
-      {/* === Variante responsive === */}
       <style jsx>{`
         @media (max-width: 768px) {
           #embed-root {
@@ -337,7 +349,7 @@ function InteractiveAvatar() {
 
 export default function InteractiveAvatarWrapper() {
   return (
-    <StreamingAvatarProvider basePath={process.env.NEXT_PUBLIC_BASE_API_URL}>
+    <StreamingAvatarProvider basePath="https://api.heygen.com">
       <InteractiveAvatar />
     </StreamingAvatarProvider>
   );
