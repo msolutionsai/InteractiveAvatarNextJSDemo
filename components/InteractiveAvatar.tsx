@@ -72,29 +72,55 @@ function InteractiveAvatar() {
   };
 
   /** 🚀 Démarrage session avec gestion voix et texte (ordre correct) */
-  const startSession = useMemoizedFn(async () => {
-    try {
-      setIsLoading(true);
-      console.log("🚀 Démarrage session avatar...");
+const startSession = useMemoizedFn(async () => {
+  try {
+    setIsLoading(true);
+    console.log("🚀 Démarrage session avatar...");
 
-      const token = await fetchAccessToken();
-      if (!token) throw new Error("Token vide");
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (typeof window !== "undefined" ? window.location.origin : "");
+    const res = await fetch(`${baseUrl}/api/get-access-token`, {
+      method: "POST",
+      cache: "no-store",
+    });
+    const { token } = await res.json();
+    if (!token) throw new Error("Token vide");
 
-      // 1) init
-      initAvatar(token);
+    // 1) init
+    initAvatar(token);
 
-      // 2) démarrage direct — les events sont gérés dans le hook
-      await startAvatar({ ...config, language: selectedLanguage }, token);
+    // 2) start avatar (les events sont gérés dans le hook)
+    await startAvatar({ ...config, language: selectedLanguage }, token);
 
-      // 3) voice chat (API intégrée)
-      await startVoiceChat(false);
-    } catch (err) {
-      console.error("❌ Erreur startSession:", err);
-    } finally {
-      setIsLoading(false);
+    // 3) 🔁 Attendre que l’avatar soit réellement démarré AVANT la voix
+    const ref: any = avatarRef.current;
+    if (ref?.once) {
+      await new Promise<void>((resolve) => {
+        const handler = () => resolve();
+        ref.once("avatar_started", handler);
+      });
+    } else {
+      await new Promise<void>((resolve) => {
+        const handler = () => {
+          ref?.off?.("avatar_started", handler);
+          resolve();
+        };
+        ref?.on?.("avatar_started", handler);
+        // garde-fou si l’évènement a déjà eu lieu
+        setTimeout(() => resolve(), 1200);
+      });
     }
-  });
 
+    // 4) voice chat (API intégrée) — micro actif
+    await startVoiceChat(false);
+
+  } catch (e) {
+    console.error("❌ Erreur startSession:", e);
+  } finally {
+    setIsLoading(false);
+  }
+});
   /** 🧹 Nettoyage */
   useUnmount(() => {
     stopAvatar();
