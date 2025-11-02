@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef } from "react";
 import { useStreamingAvatarContext } from "./context";
 
 /**
- * 🎧 Gestion complète et stable du Voice Chat Heygen (2025)
- * Compatible avec ton contexte actuel (isMuted, isVoiceChatActive, etc.)
+ * 🎧 Voice Chat HeyGen (SDK v2+)
+ * - Ne PAS passer de MediaStream au SDK (il gère le micro en interne)
+ * - On demande quand même l'autorisation micro pour fiabiliser l'expérience
+ * - Gestion complète des états: isMuted, isVoiceChatActive, loaders
  */
 export const useVoiceChat = () => {
   const {
@@ -19,7 +21,7 @@ export const useVoiceChat = () => {
   const micStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  /** 🎙️ Demande l’accès micro et vérifie les permissions */
+  /** 🎙️ Demande l’accès micro (déclenche le prompt navigateur) */
   const requestMicAccess = async (): Promise<MediaStream | null> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -32,44 +34,63 @@ export const useVoiceChat = () => {
     }
   };
 
-  /** 🚀 Démarre le Voice Chat */
+  /** 🚀 Démarre le Voice Chat (sans stream) */
   const startVoiceChat = useCallback(
     async (isInputAudioMuted?: boolean) => {
       if (!avatarRef.current) {
         console.warn("⚠️ Avatar non initialisé pour le voice chat");
         return;
       }
+      if (isVoiceChatActive) {
+        // déjà actif → on aligne juste l'état mute si demandé
+        if (typeof isInputAudioMuted === "boolean") {
+          if (isInputAudioMuted) {
+            avatarRef.current.muteInputAudio?.();
+          } else {
+            avatarRef.current.unmuteInputAudio?.();
+          }
+          setIsMuted(!!isInputAudioMuted);
+        }
+        return;
+      }
 
+      setIsVoiceChatLoading(true);
       try {
-        setIsVoiceChatLoading(true);
-
-        // ⚙️ Initialisation audio context
+        // ⚙️ AudioContext (certains navigateurs exigent un contexte actif)
         if (!audioContextRef.current) {
           audioContextRef.current = new AudioContext();
+        } else if (audioContextRef.current.state === "suspended") {
+          await audioContextRef.current.resume();
         }
 
-        // 🎙️ Récupération du flux micro
+        // 🎙️ Demander l'autorisation micro (pour éviter les surprises)
         const micStream = await requestMicAccess();
         if (!micStream) throw new Error("Micro introuvable ou refusé");
+        // On n'utilise PAS le stream avec le SDK, on l'arrête après autorisation
         micStreamRef.current = micStream;
 
-        // 🔗 Connexion audio au SDK Heygen
-        await avatarRef.current.startVoiceChat({
-          stream: micStream,
-          isInputAudioMuted,
-        });
+        // 🔗 Lancer le voice chat (SANS 'stream')
+        const startOptions: { isInputAudioMuted?: boolean } = {};
+        if (typeof isInputAudioMuted === "boolean") {
+          startOptions.isInputAudioMuted = isInputAudioMuted;
+        }
+
+        await avatarRef.current.startVoiceChat(startOptions);
+
+        // On peut couper le flux utilisé pour l'autorisation : le SDK a son propre flux
+        micStreamRef.current.getTracks().forEach((t) => t.stop());
+        micStreamRef.current = null;
 
         console.log("✅ VoiceChat connecté avec succès");
         setIsVoiceChatActive(true);
         setIsMuted(!!isInputAudioMuted);
 
-        // 🔁 Gestion reconnect/disconnect
-        avatarRef.current.on("voice_chat_reconnected", () => {
+        // (optionnel) events si le SDK en expose pour le voice chat
+        avatarRef.current.on?.("voice_chat_reconnected" as any, () => {
           console.log("🔄 Reconnexion audio réussie");
           setIsVoiceChatActive(true);
         });
-
-        avatarRef.current.on("voice_chat_disconnected", () => {
+        avatarRef.current.on?.("voice_chat_disconnected" as any, () => {
           console.warn("⚠️ VoiceChat déconnecté");
           setIsVoiceChatActive(false);
         });
@@ -80,12 +101,7 @@ export const useVoiceChat = () => {
         setIsVoiceChatLoading(false);
       }
     },
-    [
-      avatarRef,
-      setIsMuted,
-      setIsVoiceChatActive,
-      setIsVoiceChatLoading,
-    ],
+    [avatarRef, isVoiceChatActive, setIsMuted, setIsVoiceChatActive, setIsVoiceChatLoading],
   );
 
   /** 🛑 Arrête le Voice Chat et coupe le micro */
@@ -95,16 +111,19 @@ export const useVoiceChat = () => {
     try {
       console.log("🛑 Arrêt du VoiceChat");
       avatarRef.current.closeVoiceChat?.();
-      micStreamRef.current?.getTracks().forEach((t) => t.stop());
     } catch (err) {
       console.error("⚠️ Erreur à l’arrêt du VoiceChat:", err);
     }
+
+    // stoppe tout flux temporaire si encore présent
+    micStreamRef.current?.getTracks().forEach((t) => t.stop());
+    micStreamRef.current = null;
 
     setIsVoiceChatActive(false);
     setIsMuted(true);
   }, [avatarRef, setIsMuted, setIsVoiceChatActive]);
 
-  /** 🔇 Mute audio input */
+  /** 🔇 Mute audio input (contrôle SDK) */
   const muteInputAudio = useCallback(() => {
     if (!avatarRef.current) return;
     avatarRef.current.muteInputAudio?.();
@@ -112,7 +131,7 @@ export const useVoiceChat = () => {
     console.log("🔇 Micro coupé");
   }, [avatarRef, setIsMuted]);
 
-  /** 🔊 Unmute audio input */
+  /** 🔊 Unmute audio input (contrôle SDK) */
   const unmuteInputAudio = useCallback(() => {
     if (!avatarRef.current) return;
     avatarRef.current.unmuteInputAudio?.();
@@ -123,9 +142,14 @@ export const useVoiceChat = () => {
   /** ♻️ Nettoyage à la fermeture */
   useEffect(() => {
     return () => {
-      stopVoiceChat();
-      micStreamRef.current?.getTracks().forEach((t) => t.stop());
-      audioContextRef.current?.close();
+      try {
+        stopVoiceChat();
+      } finally {
+        micStreamRef.current?.getTracks().forEach((t) => t.stop());
+        micStreamRef.current = null;
+        audioContextRef.current?.close();
+        audioContextRef.current = null;
+      }
     };
   }, [stopVoiceChat]);
 
