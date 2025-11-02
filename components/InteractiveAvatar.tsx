@@ -71,48 +71,26 @@ function InteractiveAvatar() {
     }
   };
 
-  /** 🚀 Démarrage session avec gestion voix et texte */
+  /** 🚀 Démarrage session avec gestion voix et texte (ordre correct) */
   const startSession = useMemoizedFn(async () => {
     try {
       setIsLoading(true);
       console.log("🚀 Démarrage session avatar...");
 
       const token = await fetchAccessToken();
-      if (!token) {
-        setIsLoading(false);
-        return console.error("❌ Aucun token reçu, arrêt du lancement.");
-      }
+      if (!token) throw new Error("Token vide");
 
-      const avatar = initAvatar(token);
-      console.log("✅ Avatar initialisé, en attente du flux...");
+      // 1) init
+      initAvatar(token);
 
-      let started = false;
+      // 2) démarrage direct — les events sont gérés dans le hook
+      await startAvatar({ ...config, language: selectedLanguage }, token);
 
-      avatar.on("stream_ready", async () => {
-        if (started) return;
-        started = true;
-        console.log("📡 Flux prêt → lancement avatar");
-        await startAvatar({ ...config, language: selectedLanguage }, token);
-      });
-
-      avatar.on("avatar_started", async () => {
-        console.log("✅ Avatar démarré → activation VoiceChat");
-        await startVoiceChat();
-        setIsLoading(false);
-      });
-
-      avatar.on("transcript", (t: any) =>
-        console.log("🎙️ Transcription utilisateur:", t),
-      );
-      avatar.on("agent_response", (r: any) =>
-        console.log("🤖 Réponse IA:", r),
-      );
-      avatar.on("error", (err: any) => {
-        console.error("⚠️ Erreur Streaming:", err);
-        setIsLoading(false);
-      });
+      // 3) voice chat (API intégrée)
+      await startVoiceChat(false);
     } catch (err) {
-      console.error("❌ Erreur au démarrage avatar:", err);
+      console.error("❌ Erreur startSession:", err);
+    } finally {
       setIsLoading(false);
     }
   });
