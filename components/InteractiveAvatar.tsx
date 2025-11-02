@@ -8,9 +8,9 @@ import { useCallback } from "react";
 import {
   StreamingAvatarSessionState,
   useStreamingAvatarContext,
-} from "./context";
-import { useVoiceChat } from "./useVoiceChat";
-import { useMessageHistory } from "./useMessageHistory";
+} from "./logic/context";
+import { useVoiceChat } from "./logic/useVoiceChat";
+import { useMessageHistory } from "./logic/useMessageHistory";
 
 /**
  * 🎯 Gestion complète de la session Heygen
