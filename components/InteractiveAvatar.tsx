@@ -18,7 +18,6 @@ import { LoadingIcon } from "./Icons";
 import { Button } from "./Button";
 import { setupChromaKey } from "./chromaKey";
 
-// ✅ Configuration stable
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
@@ -36,8 +35,14 @@ const DEFAULT_CONFIG: StartAvatarRequest = {
 };
 
 function InteractiveAvatar() {
-  const { initAvatar, startAvatar, stopAvatar, sessionState, stream, avatarRef } =
-    useStreamingAvatarSession();
+  const {
+    initAvatar,
+    startAvatar,
+    stopAvatar,
+    sessionState,
+    stream,
+    avatarRef,
+  } = useStreamingAvatarSession();
   const { startVoiceChat, stopVoiceChat, isVoiceChatActive } = useVoiceChat();
 
   const [config] = useState<StartAvatarRequest>(DEFAULT_CONFIG);
@@ -45,87 +50,93 @@ function InteractiveAvatar() {
   const [showTextBox, setShowTextBox] = useState(false);
   const [textValue, setTextValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stopChromaRef = useRef<(() => void) | null>(null);
 
-  // === Auth ===
-  const fetchAccessToken = async () => {
+  // --- Fetch token (JSON) ---
+  const fetchAccessToken = async (): Promise<string | null> => {
     try {
-      // ✅ Appelle la route absolue (plus de 404 sur anciens déploiements)
-      const baseUrl =
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        (typeof window !== "undefined" ? window.location.origin : "");
-      const response = await fetch(`${baseUrl}/api/get-access-token`, {
+      const res = await fetch("/api/get-access-token", {
         method: "POST",
         cache: "no-store",
       });
-
-      if (!response.ok) {
-        console.error("❌ Erreur backend:", response.status, response.statusText);
-        return "";
+      if (!res.ok) {
+        const body = await res.text();
+        console.error("Token API error:", res.status, body);
+        setLastError(`API token error (${res.status})`);
+        return null;
       }
-
-      const token = await response.text();
-      console.log("🔑 Token Heygen reçu:", token ? "✅" : "❌ vide");
-      return token;
+      const data = (await res.json()) as { token?: string; error?: string };
+      if (!data?.token) {
+        console.error("Token missing:", data);
+        setLastError("Token missing");
+        return null;
+      }
+      return data.token;
     } catch (e) {
-      console.error("❌ Erreur récupération token:", e);
-      return "";
+      console.error("Token fetch failed:", e);
+      setLastError("Token fetch failed");
+      return null;
     }
   };
 
-  // === Démarrage session stable
+  // --- Start session (écoute des bons events) ---
   const startSession = useMemoizedFn(async () => {
+    setIsLoading(true);
+    setLastError(null);
+
+    const token = await fetchAccessToken();
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      setIsLoading(true);
-      console.log("🚀 Démarrage de la session avatar...");
-
-      const token = await fetchAccessToken();
-      if (!token) {
-        console.error("❌ Aucun token reçu, arrêt du lancement.");
-        setIsLoading(false);
-        return;
-      }
-
       const avatar = initAvatar(token);
-      console.log("✅ Avatar initialisé, attente du flux...");
-
-      let hasStarted = false; // ✅ prévention double démarrage
+      let started = false;
 
       avatar.on("stream_ready", async () => {
-        if (hasStarted) return;
-        hasStarted = true;
-        console.log("📡 Flux prêt → démarrage avatar");
-        await startAvatar({ ...config, language: selectedLanguage });
+        if (started) return;
+        started = true;
+        try {
+          await startAvatar({ ...config, language: selectedLanguage });
+        } catch (e) {
+          console.error("startAvatar error:", e);
+          setLastError("startAvatar failed");
+          setIsLoading(false);
+        }
       });
 
       avatar.on("avatar_started", async () => {
-        console.log("✅ Avatar démarré → activation VoiceChat");
-        await startVoiceChat();
-        setIsLoading(false);
+        try {
+          await startVoiceChat();
+        } finally {
+          setIsLoading(false);
+        }
       });
 
-      avatar.on("transcript", (t: any) => console.log("🎙️ Transcription:", t));
-      avatar.on("agent_response", (r: any) => console.log("🤖 Réponse agent:", r));
       avatar.on("error", (err: any) => {
-        console.error("⚠️ Erreur Streaming:", err);
+        console.error("Streaming error:", err);
+        setLastError("Streaming error");
         setIsLoading(false);
       });
-    } catch (err) {
-      console.error("❌ Erreur au démarrage avatar:", err);
+    } catch (e) {
+      console.error("initAvatar error:", e);
+      setLastError("initAvatar failed");
       setIsLoading(false);
     }
   });
 
-  // === Nettoyage ===
+  // --- Cleanup ---
   useUnmount(() => {
     stopAvatar();
     if (stopChromaRef.current) stopChromaRef.current();
   });
 
-  // === Gestion du flux vidéo + Chroma Key ===
+  // --- Video + chroma ---
   useEffect(() => {
     if (stream && videoRef.current) {
       const video = videoRef.current;
@@ -140,30 +151,25 @@ function InteractiveAvatar() {
     }
   }, [stream]);
 
-  // === Envoi texte vers avatar ===
+  // --- Send text ---
   const sendText = useMemoizedFn(async () => {
     const msg = textValue.trim();
     if (!msg) return;
-
     try {
       const ref: any = avatarRef.current;
-      if (!ref) return console.warn("⚠️ Avatar non prêt à recevoir du texte");
-
-      console.log("💬 Envoi du texte:", msg);
-
+      if (!ref) return console.warn("Avatar not ready");
       if (typeof ref.sendText === "function") await ref.sendText(msg);
-      else if (typeof ref.sendTextMessage === "function") await ref.sendTextMessage(msg);
+      else if (typeof ref.sendTextMessage === "function")
+        await ref.sendTextMessage(msg);
       else if (typeof ref.inputText === "function") await ref.inputText(msg);
       else if (typeof ref.sendMessage === "function")
         await ref.sendMessage({ type: "text", text: msg });
-
       setTextValue("");
     } catch (e) {
-      console.error("Erreur envoi texte:", e);
+      console.error("sendText error:", e);
     }
   });
 
-  // === Interface ===
   return (
     <div
       id="embed-root"
@@ -183,12 +189,13 @@ function InteractiveAvatar() {
         className="flex flex-col items-center justify-start rounded-xl overflow-hidden shadow-xl"
         style={{
           width: "100%",
-          border: "1px solid #6d2a8f",
+          // Supprime tout bord visible pour éviter la “ligne violette”
+          border: "0",
           background: "rgba(0,0,0,0.9)",
-          borderRadius: "10px",
+          borderRadius: "12px",
         }}
       >
-        {/* === Zone vidéo === */}
+        {/* Zone vidéo */}
         <div
           className="relative"
           style={{
@@ -225,12 +232,12 @@ function InteractiveAvatar() {
           )}
         </div>
 
-        {/* === Barre de commandes === */}
+        {/* Barre commandes */}
         <div
           className="flex flex-col gap-2 p-2 w-full"
           style={{
             background: "rgba(0,0,0,0.9)",
-            borderTop: "1px solid #6d2a8f",
+            borderTop: "1px solid rgba(109,42,143,0.35)",
           }}
         >
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
@@ -331,6 +338,13 @@ function InteractiveAvatar() {
               </button>
             </div>
           )}
+
+          {/* Petit message d’erreur discret si besoin */}
+          {lastError && (
+            <div className="text-center text-[11px] text-red-400 opacity-80 mt-1">
+              {lastError}
+            </div>
+          )}
         </div>
       </div>
 
@@ -349,7 +363,9 @@ function InteractiveAvatar() {
 
 export default function InteractiveAvatarWrapper() {
   return (
-    <StreamingAvatarProvider basePath="https://api.heygen.com">
+    <StreamingAvatarProvider
+      basePath={process.env.NEXT_PUBLIC_BASE_API_URL || "https://api.heygen.com"}
+    >
       <InteractiveAvatar />
     </StreamingAvatarProvider>
   );
