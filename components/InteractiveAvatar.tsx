@@ -118,28 +118,34 @@ function InteractiveAvatar() {
 
   /** 💬 Envoi texte à l’avatar */
   const sendText = useMemoizedFn(async () => {
-    const msg = textValue.trim();
-    if (!msg) return;
+  const msg = textValue.trim();
+  if (!msg) return;
 
-    try {
-      const ref: any = avatarRef.current;
-      if (!ref) return console.warn("⚠️ Avatar non prêt à recevoir du texte");
+  try {
+    const ref: any = avatarRef.current;
+    if (!ref) return console.warn("⚠️ Avatar non prêt à recevoir du texte");
 
-      console.log("💬 Envoi du texte:", msg);
+    console.log("💬 Envoi du texte:", msg);
 
-      if (typeof ref.sendText === "function") await ref.sendText(msg);
-      else if (typeof ref.sendTextMessage === "function")
-        await ref.sendTextMessage(msg);
-      else if (typeof ref.inputText === "function") await ref.inputText(msg);
-      else if (typeof ref.sendMessage === "function")
-        await ref.sendMessage({ type: "text", text: msg });
-
-      setTextValue("");
-    } catch (e) {
-      console.error("Erreur envoi texte:", e);
+    // ✅ API v2
+    if (typeof ref.sendTextMessage === "function") {
+      await ref.sendTextMessage({ text: msg });
+    } else if (typeof ref.sendText === "function") {
+      try { await ref.sendText({ text: msg }); } // certaines builds acceptent l’objet
+      catch { await ref.sendText(msg); }         // fallback ancien format string
+    } else if (typeof ref.inputText === "function") {
+      await ref.inputText(msg);
+    } else if (typeof ref.sendMessage === "function") {
+      await ref.sendMessage({ type: "input_text", text: msg });
+    } else {
+      console.warn("❓ Pas d’API d’envoi de texte disponible sur ce SDK.");
     }
-  });
 
+    setTextValue("");
+  } catch (e) {
+    console.error("Erreur envoi texte:", e);
+  }
+});
   /** 🎨 Interface */
   return (
     <div
