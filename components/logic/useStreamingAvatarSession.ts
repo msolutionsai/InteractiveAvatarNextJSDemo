@@ -32,7 +32,7 @@ export const useStreamingAvatarSession = () => {
     setConnectionQuality,
     handleUserTalkingMessage,
     handleStreamingTalkingMessage,
-    handleEndMessage,
+    handleEndMessage, // peut rester non utilisé selon ton contexte
     clearMessages,
   } = useStreamingAvatarContext();
 
@@ -42,27 +42,26 @@ export const useStreamingAvatarSession = () => {
   /** 🧠 Initialisation du client Heygen */
   const init = useCallback(
     (token: string) => {
-      avatarRef.current = new StreamingAvatar({
+      const client = new StreamingAvatar({
         token,
         basePath,
       });
+      avatarRef.current = client;
 
       console.log("🧩 Avatar initialisé avec basePath:", basePath);
 
-      // ✅ Ajout des écouteurs universels pour la session
-      avatarRef.current.on("agent_response", (r: any) => {
+      // ✅ Écouteurs génériques (logs utiles)
+      client.on("agent_response", (r: any) => {
         console.log("🤖 Réponse agent:", r);
       });
-
-      avatarRef.current.on("transcript", (t: any) => {
+      client.on("transcript", (t: any) => {
         console.log("🎙️ Transcription:", t);
       });
-
-      avatarRef.current.on("error", (err: any) => {
+      client.on("error", (err: any) => {
         console.error("⚠️ Erreur Streaming:", err);
       });
 
-      return avatarRef.current;
+      return client;
     },
     [basePath, avatarRef],
   );
@@ -85,6 +84,7 @@ export const useStreamingAvatarSession = () => {
   const stop = useCallback(async () => {
     console.log("🛑 Arrêt manuel de la session Heygen");
 
+    // Retire uniquement les écouteurs ajoutés avec des références stables
     avatarRef.current?.off(StreamingEvents.STREAM_READY, handleStream);
     avatarRef.current?.off(StreamingEvents.STREAM_DISCONNECTED, stop);
 
@@ -114,7 +114,7 @@ export const useStreamingAvatarSession = () => {
     setIsAvatarTalking,
   ]);
 
-  /** 🚀 Démarrage de l'avatar avec fond transparent et session stable */
+  /** 🚀 Démarrage de l'avatar (config strictement typée) */
   const start = useCallback(
     async (config: StartAvatarRequest, token?: string) => {
       if (sessionState !== StreamingAvatarSessionState.INACTIVE) {
@@ -126,63 +126,46 @@ export const useStreamingAvatarSession = () => {
         if (!token) throw new Error("Token requis pour initAvatar()");
         init(token);
       }
-
       if (!avatarRef.current) {
         throw new Error("Avatar non initialisé");
       }
 
       setSessionState(StreamingAvatarSessionState.CONNECTING);
 
+      const client = avatarRef.current;
+
       // ✅ Écouteurs streaming
-      avatarRef.current.on(StreamingEvents.STREAM_READY, handleStream);
-      avatarRef.current.on(StreamingEvents.STREAM_DISCONNECTED, stop);
-      avatarRef.current.on(
+      client.on(StreamingEvents.STREAM_READY, handleStream);
+      client.on(StreamingEvents.STREAM_DISCONNECTED, stop);
+      client.on(
         StreamingEvents.CONNECTION_QUALITY_CHANGED,
         ({ detail }: { detail: ConnectionQuality }) =>
           setConnectionQuality(detail),
       );
-      avatarRef.current.on(StreamingEvents.USER_START, () =>
-        setIsUserTalking(true),
-      );
-      avatarRef.current.on(StreamingEvents.USER_STOP, () =>
-        setIsUserTalking(false),
-      );
-      avatarRef.current.on(StreamingEvents.AVATAR_START_TALKING, () =>
+      client.on(StreamingEvents.USER_START, () => setIsUserTalking(true));
+      client.on(StreamingEvents.USER_STOP, () => setIsUserTalking(false));
+      client.on(StreamingEvents.AVATAR_START_TALKING, () =>
         setIsAvatarTalking(true),
       );
-      avatarRef.current.on(StreamingEvents.AVATAR_STOP_TALKING, () =>
+      client.on(StreamingEvents.AVATAR_STOP_TALKING, () =>
         setIsAvatarTalking(false),
       );
-      avatarRef.current.on(
+      client.on(
         StreamingEvents.USER_TALKING_MESSAGE,
         handleUserTalkingMessage,
       );
-      avatarRef.current.on(
+      client.on(
         StreamingEvents.AVATAR_TALKING_MESSAGE,
         handleStreamingTalkingMessage,
       );
 
-      // ⚙️ Patch du fond vert et stabilité
-      const patchedConfig: StartAvatarRequest = {
-        ...config,
-        background: "transparent",
-      };
+      // ⛔️ Ne PAS ajouter de propriétés hors contrat ici.
+      const startConfig = { ...config } satisfies StartAvatarRequest;
 
-      await avatarRef.current.createStartAvatar(patchedConfig);
+      await client.createStartAvatar(startConfig);
 
-      // ✅ On ignore volontairement AVATAR_END_MESSAGE
-      //    pour éviter la fermeture prématurée du flux
       console.log("✅ Avatar lancé et session maintenue active");
-
-      // 🧠 Ajustement post-lancement
-      const videoEl = document.querySelector("video");
-      if (videoEl) {
-        videoEl.style.backgroundColor = "transparent";
-        videoEl.style.mixBlendMode = "lighten";
-        videoEl.style.filter = "chroma(color=green)";
-      }
-
-      return avatarRef.current;
+      return client;
     },
     [
       init,
