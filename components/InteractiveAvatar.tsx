@@ -208,3 +208,4 @@ export const useStreamingAvatarSession = () => {
     stopAvatar: stop,
   };
 };
+export default InteractiveAvatar;
