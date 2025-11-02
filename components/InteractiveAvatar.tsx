@@ -17,7 +17,7 @@ import { LoadingIcon } from "./Icons";
 import { Button } from "./Button";
 import { setupChromaKey } from "./chromaKey";
 
-// Configuration stable
+// ✅ Configuration stable
 const DEFAULT_CONFIG: StartAvatarRequest = {
   quality: AvatarQuality.High,
   avatarName: "Katya_Pink_Suit_public",
@@ -61,7 +61,7 @@ function InteractiveAvatar() {
     }
   };
 
-  // === Nouveau flux stable (sans stream_ready)
+  // === Nouveau flux stable (avec délai audio)
   const startSession = useMemoizedFn(async () => {
     setIsLoading(true);
     try {
@@ -70,9 +70,19 @@ function InteractiveAvatar() {
 
       const avatar = initAvatar(token);
       console.log("✅ Avatar initialisé");
+
       await startAvatar({ ...config, language: selectedLanguage });
-      console.log("🎬 Avatar démarré");
-      await startVoiceChat();
+      console.log("🎬 Avatar démarré, attente audio...");
+
+      // ✅ Attendre que le flux soit prêt avant d’activer le micro
+      setTimeout(async () => {
+        console.log("🎙️ Activation du micro (VoiceChat)");
+        try {
+          await startVoiceChat();
+        } catch (err) {
+          console.error("⚠️ Erreur démarrage VoiceChat:", err);
+        }
+      }, 2000);
     } catch (err) {
       console.error("Erreur startSession:", err);
     } finally {
@@ -85,6 +95,7 @@ function InteractiveAvatar() {
     if (stopChromaRef.current) stopChromaRef.current();
   });
 
+  // === Gestion flux vidéo + chroma
   useEffect(() => {
     if (stream && videoRef.current) {
       const video = videoRef.current;
@@ -100,6 +111,7 @@ function InteractiveAvatar() {
     }
   }, [stream]);
 
+  // === Envoi texte
   const sendText = useMemoizedFn(async () => {
     const msg = textValue.trim();
     if (!msg) return;
@@ -112,26 +124,77 @@ function InteractiveAvatar() {
     setTextValue("");
   });
 
+  // === Interface ===
   return (
-    <div id="embed-root" style={{ width: "100%", maxWidth: 480, aspectRatio: "3 / 4", margin: "0 auto" }}>
+    <div
+      id="embed-root"
+      style={{
+        width: "100%",
+        maxWidth: "480px",
+        aspectRatio: "3 / 4",
+        margin: "0 auto",
+        background: "transparent",
+        overflow: "hidden",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        position: "relative", // ✅ empêche le plein écran
+      }}
+    >
       <div
         className="flex flex-col items-center justify-start rounded-xl overflow-hidden shadow-xl"
-        style={{ width: "100%", background: "rgba(0,0,0,0.9)", border: "1px solid #6d2a8f" }}
+        style={{
+          width: "100%",
+          background: "rgba(0,0,0,0.9)",
+          border: "1px solid #6d2a8f",
+          borderRadius: "10px",
+        }}
       >
-        <div style={{ width: "100%", minHeight: 320, background: "black", display: "flex", justifyContent: "center" }}>
+        {/* === Zone vidéo === */}
+        <div
+          className="relative"
+          style={{
+            width: "100%",
+            height: "100%",
+            minHeight: "320px",
+            background: "black",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
             <>
-              <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover" />
+              <canvas
+                ref={canvasRef}
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{ background: "transparent", borderRadius: "12px" }}
+              />
               <video ref={videoRef} autoPlay playsInline muted className="hidden" />
             </>
           ) : isLoading ? (
-            <LoadingIcon />
+            <div className="flex items-center justify-center w-full h-full">
+              <LoadingIcon />
+            </div>
           ) : (
-            <img src="/katya_preview.jpg" alt="Aperçu avatar" className="w-full h-full object-cover" />
+            <img
+              src="/katya_preview.jpg"
+              alt="Aperçu avatar"
+              className="w-full h-full object-cover"
+              draggable={false}
+              style={{ background: "black" }}
+            />
           )}
         </div>
 
-        <div className="flex flex-col gap-2 p-2 w-full" style={{ background: "rgba(0,0,0,0.9)" }}>
+        {/* === Barre de commandes === */}
+        <div
+          className="flex flex-col gap-2 p-2 w-full"
+          style={{
+            background: "rgba(0,0,0,0.9)",
+            borderTop: "1px solid #6d2a8f",
+          }}
+        >
           {sessionState === StreamingAvatarSessionState.CONNECTED ? (
             <>
               <div className="flex items-center justify-center gap-2">
@@ -193,7 +256,11 @@ function InteractiveAvatar() {
                 onClick={startSession}
                 disabled={isLoading}
                 className="px-3 py-1.5 text-xs font-semibold text-white rounded-full"
-                style={{ backgroundColor: isLoading ? "#444" : "#6d2a8f" }}
+                style={{
+                  backgroundColor: isLoading ? "#444" : "#6d2a8f",
+                  border: "1px solid #6d2a8f",
+                  opacity: isLoading ? 0.6 : 1,
+                }}
               >
                 {isLoading ? "Chargement…" : "Lancer"}
               </button>
