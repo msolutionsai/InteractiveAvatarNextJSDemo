@@ -4,8 +4,8 @@ import { useStreamingAvatarContext } from "./context";
 /**
  * 🎧 Voice Chat HeyGen (SDK v2+)
  * - Ne PAS passer de MediaStream au SDK (il gère le micro en interne)
- * - On demande quand même l'autorisation micro pour fiabiliser l'expérience
- * - Gestion complète des états: isMuted, isVoiceChatActive, loaders
+ * - On déclenche tout de même la permission micro pour fiabiliser l’expérience
+ * - États conservés : isMuted, isVoiceChatActive, isVoiceChatLoading
  */
 export const useVoiceChat = () => {
   const {
@@ -34,21 +34,19 @@ export const useVoiceChat = () => {
     }
   };
 
-  /** 🚀 Démarre le Voice Chat (sans stream) */
+  /** 🚀 Démarre le Voice Chat (sans passer de stream au SDK) */
   const startVoiceChat = useCallback(
     async (isInputAudioMuted?: boolean) => {
       if (!avatarRef.current) {
         console.warn("⚠️ Avatar non initialisé pour le voice chat");
         return;
       }
+
+      // Déjà actif → on aligne juste l’état mute si demandé
       if (isVoiceChatActive) {
-        // déjà actif → on aligne juste l'état mute si demandé
         if (typeof isInputAudioMuted === "boolean") {
-          if (isInputAudioMuted) {
-            avatarRef.current.muteInputAudio?.();
-          } else {
-            avatarRef.current.unmuteInputAudio?.();
-          }
+          if (isInputAudioMuted) avatarRef.current.muteInputAudio?.();
+          else avatarRef.current.unmuteInputAudio?.();
           setIsMuted(!!isInputAudioMuted);
         }
         return;
@@ -56,28 +54,26 @@ export const useVoiceChat = () => {
 
       setIsVoiceChatLoading(true);
       try {
-        // ⚙️ AudioContext (certains navigateurs exigent un contexte actif)
+        // Certains navigateurs exigent un AudioContext actif
         if (!audioContextRef.current) {
           audioContextRef.current = new AudioContext();
         } else if (audioContextRef.current.state === "suspended") {
           await audioContextRef.current.resume();
         }
 
-        // 🎙️ Demander l'autorisation micro (pour éviter les surprises)
+        // Demander la permission micro (meilleure UX) — on ne passe PAS ce flux au SDK
         const micStream = await requestMicAccess();
         if (!micStream) throw new Error("Micro introuvable ou refusé");
-        // On n'utilise PAS le stream avec le SDK, on l'arrête après autorisation
         micStreamRef.current = micStream;
 
-        // 🔗 Lancer le voice chat (SANS 'stream')
+        // Lancement voice chat — sans 'stream'
         const startOptions: { isInputAudioMuted?: boolean } = {};
         if (typeof isInputAudioMuted === "boolean") {
           startOptions.isInputAudioMuted = isInputAudioMuted;
         }
-
         await avatarRef.current.startVoiceChat(startOptions);
 
-        // On peut couper le flux utilisé pour l'autorisation : le SDK a son propre flux
+        // On coupe le flux utilisé seulement pour l’autorisation : le SDK gère son propre flux
         micStreamRef.current.getTracks().forEach((t) => t.stop());
         micStreamRef.current = null;
 
@@ -85,7 +81,7 @@ export const useVoiceChat = () => {
         setIsVoiceChatActive(true);
         setIsMuted(!!isInputAudioMuted);
 
-        // (optionnel) events si le SDK en expose pour le voice chat
+        // (optionnel) handlers si exposés par le SDK
         avatarRef.current.on?.("voice_chat_reconnected" as any, () => {
           console.log("🔄 Reconnexion audio réussie");
           setIsVoiceChatActive(true);
@@ -115,7 +111,7 @@ export const useVoiceChat = () => {
       console.error("⚠️ Erreur à l’arrêt du VoiceChat:", err);
     }
 
-    // stoppe tout flux temporaire si encore présent
+    // Stoppe tout flux temporaire si encore présent
     micStreamRef.current?.getTracks().forEach((t) => t.stop());
     micStreamRef.current = null;
 
@@ -123,7 +119,7 @@ export const useVoiceChat = () => {
     setIsMuted(true);
   }, [avatarRef, setIsMuted, setIsVoiceChatActive]);
 
-  /** 🔇 Mute audio input (contrôle SDK) */
+  /** 🔇 Mute / 🔊 Unmute via SDK */
   const muteInputAudio = useCallback(() => {
     if (!avatarRef.current) return;
     avatarRef.current.muteInputAudio?.();
@@ -131,7 +127,6 @@ export const useVoiceChat = () => {
     console.log("🔇 Micro coupé");
   }, [avatarRef, setIsMuted]);
 
-  /** 🔊 Unmute audio input (contrôle SDK) */
   const unmuteInputAudio = useCallback(() => {
     if (!avatarRef.current) return;
     avatarRef.current.unmuteInputAudio?.();
