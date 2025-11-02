@@ -12,6 +12,12 @@ import {
 import { useVoiceChat } from "./useVoiceChat";
 import { useMessageHistory } from "./useMessageHistory";
 
+/**
+ * 🎯 Hook de gestion de la session Heygen
+ * - Initialise le flux vidéo
+ * - Gère les événements IA (agent_response, transcript)
+ * - Maintient la session active pour la voix et le texte
+ */
 export const useStreamingAvatarSession = () => {
   const {
     avatarRef,
@@ -29,8 +35,8 @@ export const useStreamingAvatarSession = () => {
     handleEndMessage,
     clearMessages,
   } = useStreamingAvatarContext();
-  const { stopVoiceChat } = useVoiceChat();
 
+  const { stopVoiceChat } = useVoiceChat();
   useMessageHistory();
 
   /** 🧠 Initialisation du client Heygen */
@@ -41,6 +47,21 @@ export const useStreamingAvatarSession = () => {
         basePath,
       });
 
+      console.log("🧩 Avatar initialisé avec basePath:", basePath);
+
+      // ✅ Ajout des écouteurs universels pour la session
+      avatarRef.current.on("agent_response", (r: any) => {
+        console.log("🤖 Réponse agent:", r);
+      });
+
+      avatarRef.current.on("transcript", (t: any) => {
+        console.log("🎙️ Transcription:", t);
+      });
+
+      avatarRef.current.on("error", (err: any) => {
+        console.error("⚠️ Erreur Streaming:", err);
+      });
+
       return avatarRef.current;
     },
     [basePath, avatarRef],
@@ -49,7 +70,6 @@ export const useStreamingAvatarSession = () => {
   /** 🎥 Quand le flux vidéo est prêt */
   const handleStream = useCallback(
     ({ detail }: { detail: MediaStream }) => {
-      // ✅ Force la transparence via la piste vidéo (green screen removed)
       detail.getVideoTracks().forEach((track) => {
         const settings = track.getSettings();
         console.log("🎨 Flux vidéo prêt :", settings);
@@ -61,17 +81,26 @@ export const useStreamingAvatarSession = () => {
     [setSessionState, setStream],
   );
 
-  /** 🛑 Arrêt complet de la session */
+  /** 🛑 Arrêt complet de la session (appelé seulement manuellement) */
   const stop = useCallback(async () => {
+    console.log("🛑 Arrêt manuel de la session Heygen");
+
     avatarRef.current?.off(StreamingEvents.STREAM_READY, handleStream);
     avatarRef.current?.off(StreamingEvents.STREAM_DISCONNECTED, stop);
+
     clearMessages();
     stopVoiceChat();
     setIsListening(false);
     setIsUserTalking(false);
     setIsAvatarTalking(false);
     setStream(null);
-    await avatarRef.current?.stopAvatar();
+
+    try {
+      await avatarRef.current?.stopAvatar();
+    } catch (err) {
+      console.warn("⚠️ Erreur lors de l'arrêt de l'avatar:", err);
+    }
+
     setSessionState(StreamingAvatarSessionState.INACTIVE);
   }, [
     handleStream,
@@ -85,25 +114,26 @@ export const useStreamingAvatarSession = () => {
     setIsAvatarTalking,
   ]);
 
-  /** 🚀 Démarrage de l'avatar avec fond transparent universel */
+  /** 🚀 Démarrage de l'avatar avec fond transparent et session stable */
   const start = useCallback(
     async (config: StartAvatarRequest, token?: string) => {
       if (sessionState !== StreamingAvatarSessionState.INACTIVE) {
-        throw new Error("There is already an active session");
+        console.warn("⚠️ Session déjà active, relance ignorée");
+        return avatarRef.current;
       }
 
       if (!avatarRef.current) {
-        if (!token) throw new Error("Token is required");
+        if (!token) throw new Error("Token requis pour initAvatar()");
         init(token);
       }
 
       if (!avatarRef.current) {
-        throw new Error("Avatar is not initialized");
+        throw new Error("Avatar non initialisé");
       }
 
       setSessionState(StreamingAvatarSessionState.CONNECTING);
 
-      // ✅ Écouteurs principaux
+      // ✅ Écouteurs streaming
       avatarRef.current.on(StreamingEvents.STREAM_READY, handleStream);
       avatarRef.current.on(StreamingEvents.STREAM_DISCONNECTED, stop);
       avatarRef.current.on(
@@ -131,26 +161,27 @@ export const useStreamingAvatarSession = () => {
         StreamingEvents.AVATAR_TALKING_MESSAGE,
         handleStreamingTalkingMessage,
       );
-      avatarRef.current.on(StreamingEvents.USER_END_MESSAGE, handleEndMessage);
-      avatarRef.current.on(StreamingEvents.AVATAR_END_MESSAGE, handleEndMessage);
 
-      // 🧩 Patch config — suppression du fond vert
+      // ⚙️ Patch du fond vert et stabilité
       const patchedConfig: StartAvatarRequest = {
         ...config,
+        background: "transparent",
       };
 
-      // ⚙️ Déclenchement de l'avatar
       await avatarRef.current.createStartAvatar(patchedConfig);
 
-      // 🧠 Ajustement post-lancement : appliquer un filtre de transparence CSS
+      // ✅ On ignore volontairement AVATAR_END_MESSAGE
+      //    pour éviter la fermeture prématurée du flux
+      console.log("✅ Avatar lancé et session maintenue active");
+
+      // 🧠 Ajustement post-lancement
       const videoEl = document.querySelector("video");
       if (videoEl) {
         videoEl.style.backgroundColor = "transparent";
-        videoEl.style.mixBlendMode = "lighten"; // retire visuellement le vert
+        videoEl.style.mixBlendMode = "lighten";
         videoEl.style.filter = "chroma(color=green)";
       }
 
-      console.log("✅ Avatar lancé avec fond transparent simulé");
       return avatarRef.current;
     },
     [
@@ -164,7 +195,6 @@ export const useStreamingAvatarSession = () => {
       setIsUserTalking,
       handleUserTalkingMessage,
       handleStreamingTalkingMessage,
-      handleEndMessage,
       setIsAvatarTalking,
     ],
   );
