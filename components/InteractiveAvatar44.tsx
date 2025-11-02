@@ -48,6 +48,7 @@ function InteractiveAvatar() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null); // ✅ sortie audio TTS
   const stopChromaRef = useRef<(() => void) | null>(null);
 
   /** 🎫 Récupération du token Heygen */
@@ -72,62 +73,62 @@ function InteractiveAvatar() {
   };
 
   /** 🚀 Démarrage session avec gestion voix et texte (ordre correct) */
-const startSession = useMemoizedFn(async () => {
-  try {
-    setIsLoading(true);
-    console.log("🚀 Démarrage session avatar...");
+  const startSession = useMemoizedFn(async () => {
+    try {
+      setIsLoading(true);
+      console.log("🚀 Démarrage session avatar...");
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (typeof window !== "undefined" ? window.location.origin : "");
-    const res = await fetch(`${baseUrl}/api/get-access-token`, {
-      method: "POST",
-      cache: "no-store",
-    });
-    const { token } = await res.json();
-    if (!token) throw new Error("Token vide");
-
-    // 1) init
-    initAvatar(token);
-
-    // 2) start avatar (les events sont gérés dans le hook)
-    await startAvatar({ ...config, language: selectedLanguage }, token);
-
-    // 3) 🔁 Attendre que l’avatar soit réellement démarré AVANT la voix
-    const ref: any = avatarRef.current;
-    if (ref?.once) {
-      await new Promise<void>((resolve) => {
-        const handler = () => resolve();
-        ref.once("avatar_started", handler);
+      const baseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        (typeof window !== "undefined" ? window.location.origin : "");
+      const res = await fetch(`${baseUrl}/api/get-access-token`, {
+        method: "POST",
+        cache: "no-store",
       });
-    } else {
-      await new Promise<void>((resolve) => {
-        const handler = () => {
-          ref?.off?.("avatar_started", handler);
-          resolve();
-        };
-        ref?.on?.("avatar_started", handler);
-        // garde-fou si l’évènement a déjà eu lieu
-        setTimeout(() => resolve(), 1200);
-      });
+      const { token } = await res.json();
+      if (!token) throw new Error("Token vide");
+
+      // 1) init
+      initAvatar(token);
+
+      // 2) start avatar (les events sont gérés dans le hook)
+      await startAvatar({ ...config, language: selectedLanguage }, token);
+
+      // 3) 🔁 Attendre que l’avatar soit réellement démarré AVANT la voix
+      const ref: any = avatarRef.current;
+      if (ref?.once) {
+        await new Promise<void>((resolve) => {
+          const handler = () => resolve();
+          ref.once("avatar_started", handler);
+        });
+      } else {
+        await new Promise<void>((resolve) => {
+          const handler = () => {
+            ref?.off?.("avatar_started", handler);
+            resolve();
+          };
+          ref?.on?.("avatar_started", handler);
+          // garde-fou si l’évènement a déjà eu lieu
+          setTimeout(() => resolve(), 1200);
+        });
+      }
+
+      // 4) voice chat (API intégrée) — micro actif
+      await startVoiceChat(false);
+    } catch (e) {
+      console.error("❌ Erreur startSession:", e);
+    } finally {
+      setIsLoading(false);
     }
+  });
 
-    // 4) voice chat (API intégrée) — micro actif
-    await startVoiceChat(false);
-
-  } catch (e) {
-    console.error("❌ Erreur startSession:", e);
-  } finally {
-    setIsLoading(false);
-  }
-});
   /** 🧹 Nettoyage */
   useUnmount(() => {
     stopAvatar();
     if (stopChromaRef.current) stopChromaRef.current();
   });
 
-  /** 🎥 Gestion flux vidéo + Chroma Key */
+  /** 🎥 Gestion flux vidéo + Chroma Key + 🎧 Sortie audio */
   useEffect(() => {
     if (stream && videoRef.current) {
       const video = videoRef.current;
@@ -139,39 +140,50 @@ const startSession = useMemoizedFn(async () => {
         if (stopChromaRef.current) stopChromaRef.current();
         stopChromaRef.current = setupChromaKey(video, canvas);
       };
+
+      // ✅ brancher aussi le flux sur l'audio pour entendre la TTS de l'avatar
+      if (audioRef.current) {
+        audioRef.current.srcObject = stream;
+        audioRef.current.muted = false;
+        audioRef.current.play().catch(() => {});
+      }
     }
   }, [stream]);
 
-  /** 💬 Envoi texte à l’avatar */
+  /** 💬 Envoi texte à l’avatar (signature SDK v2) */
   const sendText = useMemoizedFn(async () => {
-  const msg = textValue.trim();
-  if (!msg) return;
+    const msg = textValue.trim();
+    if (!msg) return;
 
-  try {
-    const ref: any = avatarRef.current;
-    if (!ref) return console.warn("⚠️ Avatar non prêt à recevoir du texte");
+    try {
+      const ref: any = avatarRef.current;
+      if (!ref) return console.warn("⚠️ Avatar non prêt à recevoir du texte");
 
-    console.log("💬 Envoi du texte:", msg);
+      console.log("💬 Envoi du texte:", msg);
 
-    // ✅ API v2
-    if (typeof ref.sendTextMessage === "function") {
-      await ref.sendTextMessage({ text: msg });
-    } else if (typeof ref.sendText === "function") {
-      try { await ref.sendText({ text: msg }); } // certaines builds acceptent l’objet
-      catch { await ref.sendText(msg); }         // fallback ancien format string
-    } else if (typeof ref.inputText === "function") {
-      await ref.inputText(msg);
-    } else if (typeof ref.sendMessage === "function") {
-      await ref.sendMessage({ type: "input_text", text: msg });
-    } else {
-      console.warn("❓ Pas d’API d’envoi de texte disponible sur ce SDK.");
+      // ✅ API v2
+      if (typeof ref.sendTextMessage === "function") {
+        await ref.sendTextMessage({ text: msg });
+      } else if (typeof ref.sendText === "function") {
+        try {
+          await ref.sendText({ text: msg }); // certaines builds acceptent l’objet
+        } catch {
+          await ref.sendText(msg); // fallback ancien format string
+        }
+      } else if (typeof ref.inputText === "function") {
+        await ref.inputText(msg);
+      } else if (typeof ref.sendMessage === "function") {
+        await ref.sendMessage({ type: "input_text", text: msg });
+      } else {
+        console.warn("❓ Pas d’API d’envoi de texte disponible sur ce SDK.");
+      }
+
+      setTextValue("");
+    } catch (e) {
+      console.error("Erreur envoi texte:", e);
     }
+  });
 
-    setTextValue("");
-  } catch (e) {
-    console.error("Erreur envoi texte:", e);
-  }
-});
   /** 🎨 Interface */
   return (
     <div
@@ -218,6 +230,8 @@ const startSession = useMemoizedFn(async () => {
                 style={{ background: "rgba(0,0,0,0.95)" }}
               />
               <video ref={videoRef} autoPlay playsInline muted className="hidden" />
+              {/* ✅ sortie audio TTS (cachée) */}
+              <audio ref={audioRef} autoPlay className="hidden" />
             </>
           ) : isLoading ? (
             <div className="flex items-center justify-center w-full h-full">
